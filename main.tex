@@ -1,0 +1,311 @@
+% ============================================================
+%  Diplomingeniørprojekt – DTU Software Technology
+%  Kompiler med: pdfLaTeX (Overleaf standard)
+% ============================================================
+\documentclass[12pt, a4paper, oneside]{report}
+
+% ── Encoding & sprog ────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[danish]{babel}
+
+% ── Skrifttype ───────────────────────────────────────────────
+\usepackage{lmodern}
+\usepackage{microtype}           % Bedre orddeling og spacing
+
+% ── Sidelayout ───────────────────────────────────────────────
+\usepackage[
+  a4paper,
+  top=3cm, bottom=3cm,
+  left=2.8cm, right=2.8cm
+]{geometry}
+\usepackage{setspace}
+\setstretch{1.2}
+\setlength{\parskip}{6pt}
+\setlength{\parindent}{0pt}
+
+% ── Farver ───────────────────────────────────────────────────
+\usepackage[dvipsnames]{xcolor}
+\definecolor{dtuRed}{RGB}{153,0,0}
+\definecolor{arkynBlue}{RGB}{29,130,219}
+\definecolor{codeBackground}{RGB}{248,248,248}
+\definecolor{codeComment}{RGB}{106,153,85}
+\definecolor{codeKeyword}{RGB}{86,156,214}
+\definecolor{codeString}{RGB}{206,145,120}
+\definecolor{codeType}{RGB}{78,201,176}
+\definecolor{codePurple}{RGB}{197,134,192}
+
+% ── Figurer & tabeller ───────────────────────────────────────
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{subcaption}
+\captionsetup{font=small, labelfont=bf, skip=6pt}
+
+% ── Kodelistings ─────────────────────────────────────────────
+\usepackage{listings}
+
+% Grundlæggende stil
+\lstdefinestyle{base}{
+  backgroundcolor=\color{codeBackground},
+  basicstyle=\ttfamily\small,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  commentstyle=\color{codeComment}\itshape,
+  frame=single,
+  framesep=4pt,
+  framerule=0.5pt,
+  rulecolor=\color{gray!30},
+  keepspaces=true,
+  keywordstyle=\color{codeKeyword}\bfseries,
+  numbers=left,
+  numbersep=8pt,
+  numberstyle=\tiny\color{gray},
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  stringstyle=\color{codeString},
+  tabsize=4,
+  xleftmargin=1.5em,
+}
+
+% Swift
+\lstdefinelanguage{Swift}{
+  morekeywords={
+    func,var,let,class,struct,enum,protocol,extension,import,
+    return,if,else,guard,switch,case,default,for,while,do,try,
+    catch,throw,throws,async,await,actor,nil,true,false,self,
+    super,init,deinit,get,set,willSet,didSet,lazy,static,final,
+    override,open,public,internal,private,fileprivate,mutating,
+    nonmutating,in,where,as,is,some,any,@MainActor,@Published,
+    @StateObject,@ObservedObject,@State,@Binding,@AppStorage,
+    @EnvironmentObject,@Environment,ObservableObject,View,
+    Task,MainActor
+  },
+  morestring=[b]",
+  morestring=[b]""",
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  sensitive=true
+}
+
+% Go
+\lstdefinelanguage{Go}{
+  morekeywords={
+    break,case,chan,const,continue,default,defer,else,fallthrough,
+    for,func,go,goto,if,import,interface,map,package,range,return,
+    select,struct,switch,type,var,nil,true,false,error,
+    string,int,int64,float64,bool,byte,rune,uint,uint64
+  },
+  morestring=[b]",
+  morestring=[b]`,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  sensitive=true
+}
+
+\lstset{style=base}
+
+% Shorthand kommandoer til sprog
+\newcommand{\swift}[1]{\lstinline[language=Swift]{#1}}
+\newcommand{\gocode}[1]{\lstinline[language=Go]{#1}}
+
+% ── Matematik ────────────────────────────────────────────────
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% ── Citater ──────────────────────────────────────────────────
+\usepackage[danish=guillemets]{csquotes}
+
+% ── Referencer (IEEE-stil) ───────────────────────────────────
+\usepackage[
+  backend=biber,
+  style=ieee,
+  sorting=none
+]{biblatex}
+\addbibresource{references.bib}
+
+% ── Sidehoved og -fod ────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small\leftmark}
+\fancyhead[R]{\small\thepage}
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \renewcommand{\headrulewidth}{0pt}
+  \fancyfoot[C]{\small\thepage}
+}
+
+% ── Kapitelformatering ───────────────────────────────────────
+\usepackage{titlesec}
+\titleformat{\chapter}[hang]
+  {\normalfont\LARGE\bfseries\color{dtuRed}}
+  {\thechapter}{1em}{}
+\titlespacing{\chapter}{0pt}{0pt}{20pt}
+
+\titleformat{\section}
+  {\normalfont\Large\bfseries}
+  {\thesection}{1em}{}
+
+\titleformat{\subsection}
+  {\normalfont\large\bfseries}
+  {\thesubsection}{1em}{}
+
+% ── Hyperlinks ───────────────────────────────────────────────
+\usepackage[
+  colorlinks=true,
+  linkcolor=dtuRed,
+  citecolor=arkynBlue,
+  urlcolor=arkynBlue,
+  pdftitle={OCR- og AI-baseret maskinidentifikation},
+  pdfauthor={Peter Hannibal Hildorf}
+]{hyperref}
+
+% ── Nyttige pakker ───────────────────────────────────────────
+\usepackage{enumitem}
+\usepackage{pifont}
+\usepackage{mdframed}          % Til info-bokse
+\usepackage{tcolorbox}         % Til farvede bokse
+\tcbuselibrary{most}
+
+% Definér en "info-boks"
+\newtcolorbox{infobox}[1][]{
+  colback=arkynBlue!8,
+  colframe=arkynBlue!60,
+  fonttitle=\bfseries,
+  title=#1,
+  left=6pt, right=6pt, top=4pt, bottom=4pt
+}
+
+% Definér en "advarselsboks"
+\newtcolorbox{warningbox}[1][]{
+  colback=orange!8,
+  colframe=orange!60,
+  fonttitle=\bfseries,
+  title=#1,
+  left=6pt, right=6pt, top=4pt, bottom=4pt
+}
+
+% ============================================================
+%  DOKUMENT
+% ============================================================
+\begin{document}
+
+% ── Titelside ────────────────────────────────────────────────
+\begin{titlepage}
+  \centering
+  \includegraphics[width=4cm]{figures/dtu_logo}
+
+  \vspace*{1.5cm}
+
+  {\large\textbf{DTU Software Technology}}\\[0.3cm]
+  {\normalsize Department of Engineering Technology and Didactics}\\[0.2cm]
+  {\normalsize Diplomingeniørprojekt}\\[0.5cm]
+
+  \noindent\rule{\textwidth}{1pt}\\[0.6cm]
+
+  {\LARGE\bfseries OCR- og AI-baseret maskinidentifikation\\[0.3cm]
+  til vedligeholdelsesteknikere}\\[0.4cm]
+  {\large En mobil prototype til Arkyn Studios}
+
+  \\[0.4cm]\noindent\rule{\textwidth}{1pt}
+
+  \vspace{2.5cm}
+
+  \begin{minipage}{0.45\textwidth}
+    \centering
+
+    \textbf{FORFATTER}\\[0.3cm]
+    Peter Hannibal Hildorf\\
+    \texttt{s[studienummer]}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.45\textwidth}
+    \centering
+    \textbf{VEJLEDER}\\[0.3cm]
+    [Vejledernavn]\\
+    DTU
+  \end{minipage}
+
+  \vspace{2.5cm}
+
+  {\normalsize Maj 2026}
+
+  \vfill
+
+  % Indsæt DTU-logo: gem dtu_logo.png i figures/ og fjern %-tegnet nedenfor
+
+  \vspace{1cm}
+\end{titlepage}
+
+% ── Forord (valgfrit) ────────────────────────────────────────
+% Fjern kommentering hvis du vil tilføje forord
+% \chapter*{Forord}
+% \addcontentsline{toc}{chapter}{Forord}
+% Tekst her...
+% \clearpage
+
+% ── Abstract ─────────────────────────────────────────────────
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\thispagestyle{plain}
+
+% TODO: Skriv abstract sidst – efter alle andre kapitler er færdige.
+% Ca. 200–250 ord på engelsk. Eksempel på struktur:
+%
+% This project presents the development of a mobile prototype feature for
+% maintenance technicians at Arkyn Studios. The system enables rapid machine
+% identification through image- and video-based Optical Character Recognition
+% (OCR), followed by AI-generated maintenance guidance. [...]
+
+\textit{(Skrives sidst — se kommentar i main.tex)}
+
+\clearpage
+
+% ── Indholdsfortegnelse ──────────────────────────────────────
+\tableofcontents
+\clearpage
+
+% ── Figurliste (tilføj hvis du har mange figurer) ────────────
+% \listoffigures
+% \addcontentsline{toc}{chapter}{Figurliste}
+% \clearpage
+
+% ── Kapitelindhold ───────────────────────────────────────────
+\include{chapters/01_introduction}
+\include{chapters/02_analysis}
+
+% Kommende kapitler – fjern % efterhånden som de skrives:
+% \include{chapters/03_methodology}
+% \include{chapters/04_architecture}
+% \include{chapters/05_ux_design}
+% \include{chapters/06_implementation}
+% \include{chapters/07_testing}
+% \include{chapters/08_discussion}
+% \include{chapters/09_conclusion}
+
+% ── Referencer ───────────────────────────────────────────────
+\clearpage
+\printbibliography[heading=bibintoc, title={Referencer}]
+
+% ── Bilag ────────────────────────────────────────────────────
+\appendix
+
+\chapter{API-dokumentation}
+\label{app:api}
+
+\textit{(Udfyldes i et senere skridt)}
+
+\chapter{Testresultater}
+\label{app:tests}
+
+\textit{(Udfyldes i et senere skridt)}
+
+\end{document}

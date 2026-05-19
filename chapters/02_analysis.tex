@@ -1,0 +1,199 @@
+\chapter{Analyse og kravspecifikation}
+\label{chap:analysis}
+
+\section{Domæneanalyse}
+\label{sec:domæneanalyse}
+
+For at forstå det problem systemet skal løse, er det nødvendigt at analysere den kontekst, hvori vedligeholdelsesteknikeren arbejder. Denne analyse tager udgangspunkt i information indsamlet i samarbejde med Arkyn Studios samt de erfaringer der er gjort i løbet af praktikopholdet.
+
+\subsection{Teknikerens arbejdssituation}
+\label{subsec:teknikerens-arbejdssituation}
+
+En vedligeholdelsesteknikers arbejdsdag er præget af uforudsigelige hændelser: maskiner der går ned, fejl der skal diagnosticeres og udstyr der skal inspiceres. Arbejdet foregår på fabriksgulvet — typisk under tidspres, i støjende omgivelser og med begrænset adgang til stationære computere og dokumentation.
+
+Når en teknikeren møder en ukendt maskine eller et ukendt udstyr, følger typisk dette forløb:
+
+\begin{enumerate}
+  \item \textbf{Identifikation:} Teknikeren forsøger at identificere maskinen ved at aflæse typeskilt, mærkat eller stregkode — hvis disse overhovedet er læselige efter års slitage og industrielt miljø.
+  \item \textbf{Informationssøgning:} På baggrund af den identificerede model eller serienummer søges i virksomhedens dokumentationssystem, papirmanualer eller via kolleger.
+  \item \textbf{Udførelse:} Teknikeren udfører vedligeholdelsen baseret på fundet information — eller på bedste skøn, hvis informationen er utilstrækkelig.
+\end{enumerate}
+
+Dette forløb er forbundet med kendte smertepunkter: typeskilte kan være ulæselige eller på fremmedsprog, dokumentation kan være svær at finde, og afhængighed af erfarne kolleger skaber flaskehalse i organisationen.
+
+\subsection{Teknologisk kontekst}
+\label{subsec:teknologisk-kontekst}
+
+Centrale teknologier i løsningsrummet er:
+
+\textbf{Optical Character Recognition (OCR):} Teknologi til automatisk tekstgenkendelse i billeder. I industriel kontekst anvendes OCR til aflæsning af typebetegnelser, serienumre og tekniske specifikationer fra maskinlabels. Moderne cloud-baserede OCR-løsninger som Google Cloud Vision~\cite{google_vision} opnår høj nøjagtighed selv på skæve vinkler og delvist slidte labels.
+
+\textbf{Large Language Models (LLM):} AI-modeller der kan fortolke struktureret tekstinformation og generere handlingsorienterede vejledninger på naturligt sprog. Modeller som Anthropic Claude~\cite{anthropic_claude} kan instrueres til at returnere struktureret JSON-output, hvilket letter integration med eksisterende systemer.
+
+\textbf{Mobilkamera:} Moderne smartphones har kameraer af tilstrækkelig kvalitet til at fungere som input-enhed for OCR-behandling, og giver teknikeren et allerede velkendt og tilgængeligt redskab.
+
+Selvom de individuelle teknologier er velkendte, er kombinationen af billedbaseret input, realtids-OCR og AI-assisteret vejledning i en vedligeholdelseskontekst et relativt uudforsket område.
+
+\section{Brugsscenarier}
+\label{sec:brugsscenarier}
+
+På baggrund af domæneanalysen er følgende primære brugsscenarier identificeret.
+
+\subsection{Use Case 1: Billede af typeskilt}
+
+\begin{tabular}{@{}lp{0.7\textwidth}@{}}
+  \toprule
+  \textbf{Aktør}        & Vedligeholdelsesteknikeren \\
+  \textbf{Forudsætning} & Teknikeren er i nærheden af en maskine med et synligt typeskilt \\
+  \midrule
+  \multicolumn{2}{@{}l@{}}{\textbf{Forløb}} \\
+  1 & Teknikeren åbner applikationen og navigerer til kamera-fanen \\
+  2 & Der tages et billede af maskinens typeskilt \\
+  3 & Systemet kører OCR og returnerer strukturerede entiteter (producent, model, serienummer mv.) \\
+  4 & Teknikeren trykker \textit{Analyser} på den ønskede entitet \\
+  5 & Systemet returnerer AI-genereret vedligeholdelsesvejledning \\
+  \midrule
+  \textbf{Resultat} & Teknikeren modtager relevant information inden for få sekunder \\
+  \bottomrule
+\end{tabular}
+
+\vspace{1em}
+
+\subsection{Use Case 2: Video af stor label}
+
+\begin{tabular}{@{}lp{0.7\textwidth}@{}}
+  \toprule
+  \textbf{Aktør}        & Vedligeholdelsesteknikeren \\
+  \textbf{Forudsætning} & Maskinens label er for stor til at blive fotograferet i ét billede \\
+  \midrule
+  \multicolumn{2}{@{}l@{}}{\textbf{Forløb}} \\
+  1 & Teknikeren optager en kort video ved at panorere kameraet henover labelen \\
+  2 & Systemet behandler videoen ved at udtrække frames (1 FPS) og køre OCR på hver enkelt \\
+  3 & Systemet aggregerer den udtrukne tekst og returnerer strukturerede entiteter \\
+  4--5 & Som Use Case 1, trin 4--5 \\
+  \midrule
+  \textbf{Resultat} & Komplet tekstudtræk fra labels der er for store til ét billede \\
+  \bottomrule
+\end{tabular}
+
+\vspace{1em}
+
+\subsection{Use Case 3: Lav billedkvalitet}
+
+\begin{tabular}{@{}lp{0.7\textwidth}@{}}
+  \toprule
+  \textbf{Aktør}        & Vedligeholdelsesteknikeren \\
+  \textbf{Forudsætning} & Billede er optaget under dårlige lysforhold, eller typeskiltet er snavset \\
+  \midrule
+  \multicolumn{2}{@{}l@{}}{\textbf{Forløb}} \\
+  1 & Teknikeren uploader et billede som normalt \\
+  2 & Systemet registrerer lav OCR-confidence (under 60~\%) \\
+  3 & Systemet markerer resultatet som \textit{Manuel kontrol påkrævet} \\
+  4 & Teknikeren informeres om at tage et nyt, tydeligere billede \\
+  \midrule
+  \textbf{Resultat} & Systemet fejler kontrolleret frem for at returnere forkerte data \\
+  \bottomrule
+\end{tabular}
+
+\section{Kravspecifikation}
+\label{sec:krav}
+
+\subsection{Funktionelle krav}
+\label{subsec:funktionelle-krav}
+
+Tabel~\ref{tab:funktionelle-krav} opstiller de funktionelle krav til systemet, udledt fra domæneanalysen og brugsscenariet.
+
+\begin{table}[H]
+  \centering
+  \caption{Funktionelle krav}
+  \label{tab:funktionelle-krav}
+  \begin{tabularx}{\textwidth}{@{}llX@{}}
+    \toprule
+    \textbf{ID} & \textbf{Krav} & \textbf{Beskrivelse} \\
+    \midrule
+    F1 & Kameraoptagelse     & Systemet skal understøtte optagelse af billeder og videoer via enhedens kamera \\
+    \addlinespace
+    F2 & OCR-udtræk          & Systemet skal udtrække tekst fra uploadede billeder og videoer via Google Cloud Vision \\
+    \addlinespace
+    F3 & Entitetsformatering & Systemet skal formatere råtekst til strukturerede entiteter med tilhørende handlingsmuligheder (kopiér, søg, analyser) \\
+    \addlinespace
+    F4 & AI-vejledning       & Systemet skal på baggrund af en valgt entitet generere struktureret vedligeholdelsesvejledning med trin og sikkerhedsnoter \\
+    \addlinespace
+    F5 & Confidence-kontrol  & Systemet skal markere resultater med lav OCR-confidence (< 60~\%) som \textit{Manuel kontrol påkrævet} \\
+    \addlinespace
+    F6 & Fejlhåndtering      & Systemet skal vise meningsfulde fejlbeskeder og tilbyde brugeren mulighed for at prøve igen \\
+    \addlinespace
+    F7 & Sprogunderstøttelse & Systemet skal understøtte vejledning på dansk og engelsk, styret af brugerindstilling \\
+    \addlinespace
+    F8 & Fritekst-chat       & Systemet skal understøtte fritekstbaseret kommunikation med AI, eventuelt med vedhæftet billede \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Ikke-funktionelle krav}
+\label{subsec:ikke-funktionelle-krav}
+
+\begin{table}[H]
+  \centering
+  \caption{Ikke-funktionelle krav}
+  \label{tab:ikke-funktionelle-krav}
+  \begin{tabularx}{\textwidth}{@{}llX@{}}
+    \toprule
+    \textbf{ID} & \textbf{Krav} & \textbf{Beskrivelse} \\
+    \midrule
+    NF1 & Svartid (billede) & OCR og entitetsformatering bør returnere svar inden for 10 sekunder \\
+    \addlinespace
+    NF2 & Svartid (video)   & Video-pipeline bør returnere svar inden for 30 sekunder for optagelser op til 10 sekunder \\
+    \addlinespace
+    NF3 & Pålidelighed      & Systemet skal håndtere netværksfejl og API-timeouts gracefully uden applikationskrasj \\
+    \addlinespace
+    NF4 & Brugervenlighed   & Kerneflowet fra kameraåbning til vejledning skal kunne gennemføres uden forudgående instruktion \\
+    \addlinespace
+    NF5 & Vedligeholdelighed & Kodebasen skal følge MVVM-arkitekturmønstret og have testdækning af alle backend-endpoints \\
+    \addlinespace
+    NF6 & Sikkerhed         & API-nøgler må aldrig indgå i klientkoden eller versionsstyringen \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{MoSCoW-prioritering}
+\label{sec:moscow}
+
+For at sikre fokus i det iterative udviklingsforløb er kravene prioriteret efter MoSCoW-modellen~\cite{moscow}. Modellen opdeler krav i fire kategorier: \textit{Must Have}, \textit{Should Have}, \textit{Could Have} og \textit{Won't Have}.
+
+\begin{table}[H]
+  \centering
+  \caption{MoSCoW-prioritering af systemkrav}
+  \label{tab:moscow}
+  \begin{tabularx}{\textwidth}{@{}lX@{}}
+    \toprule
+    \textbf{Prioritet} & \textbf{Krav} \\
+    \midrule
+    \textbf{Must Have}
+    & Kameraoptagelse og multipart-upload (F1) \newline
+      Google Cloud Vision OCR-integration (F2) \newline
+      Claude Haiku entitetsformatering med JSON-output (F3) \newline
+      AI-genereret vedligeholdelsesvejledning via \texttt{/api/v1/analyze} (F4) \newline
+      Confidence-baseret flagging ved lav OCR-kvalitet (F5) \newline
+      Fejlhåndtering med retry-mulighed (F6) \\
+    \addlinespace
+    \textbf{Should Have}
+    & Videounderstøttelse med ffmpeg frame-udtræk (F1, F2) \newline
+      Sprogvalg dansk/engelsk i brugergrænsefladen (F7) \newline
+      Loading-tilstand med kontekstuelle hints under API-kald \newline
+      Server health-check med statusindikator i UI \\
+    \addlinespace
+    \textbf{Could Have}
+    & Fritekst-chat med AI via \texttt{/api/v1/chat} (F8) \newline
+      Handlingsknapper per entitet (kopiér, søg, kort, analyser) \newline
+      Kameraoverlay med UX-vejledning til brugeren \\
+    \addlinespace
+    \textbf{Won't Have}
+    & SAP/ERP-integration \newline
+      Android-understøttelse \newline
+      Brugerautentificering og rollestyring \newline
+      Offline-funktionalitet \newline
+      Historik og synkronisering på tværs af enheder \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
