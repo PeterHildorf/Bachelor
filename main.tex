@@ -12,7 +12,7 @@
 % ── Skrifttype ───────────────────────────────────────────────
 \usepackage{lmodern}
 \usepackage{microtype}           % Bedre orddeling og spacing
-
+\emergencystretch=3em
 % ── Sidelayout ───────────────────────────────────────────────
 \usepackage[
   a4paper,
@@ -281,17 +281,17 @@
 % ── Kapitelindhold ───────────────────────────────────────────
 \include{chapters/01_introduction}
 \include{chapters/02_analysis}
+\include{chapters/03_methodology}
+\include{chapters/04_architecture}
+\include{chapters/05_ux_design}
+\include{chapters/06_implementation}
+\include{chapters/07_testing}
+\include{chapters/08_discussion}
+\include{chapters/09_conclusion}
 
-% Kommende kapitler – fjern % efterhånden som de skrives:
-% \include{chapters/03_methodology}
-% \include{chapters/04_architecture}
-% \include{chapters/05_ux_design}
-% \include{chapters/06_implementation}
-% \include{chapters/07_testing}
-% \include{chapters/08_discussion}
-% \include{chapters/09_conclusion}
 
-% ── Referencer ───────────────────────────────────────────────
+% ── Referencer 
+───────────────────────────────────────────────
 \clearpage
 \printbibliography[heading=bibintoc, title={Referencer}]
 

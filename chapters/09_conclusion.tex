@@ -1,0 +1,14 @@
+\chapter{Konklusion}
+\label{chap:conclusion}
+
+Dette projekt har undersøgt og demonstreret, hvordan en kombination af billedbaseret tekstgenkendelse (OCR) og AI-genereret vejledning kan understøtte vedligeholdelsesteknikere i hurtig identifikation af maskiner og adgang til relevant vedligeholdelsesinformation og direkte på deres mobile enhed.
+
+Den udviklede prototype realiserer dette ved at kombinere Google Cloud Vision til OCR-udtræk, Anthropic Claude Haiku til strukturering og fortolkning af den udtrukne tekst, og en iOS-applikation i Swift og SwiftUI som brugergrænsefladen. Backenden er implementeret i Go som en letvægts middleware-service, der orkestrerer kommunikationen mellem klienten og de eksterne API'er.
+
+Systemet gennemfører kerneflowet — fra kameraoptagelse af et typeskilt til AI-genereret vedligeholdelsesvejledning med trin og sikkerhedsadvarsler — og er valideret med reelle testmaterialer, herunder typeskilte fra industrielle motorer fra praktikopholdet hos Arkyn Studios samt labels fra en bred vifte af industrielt udstyr hentet fra offentlige kilder. Testresultaterne viser, at systemet producerer relevante og handlingsorienterede resultater på tværs af varierende labeltyper, sprog og billedkvaliteter.
+
+Den iterative udviklingsproces, der har kombineret teknisk implementering med løbende evaluering i samarbejde med Arkyn Studios, har vist sig som en hensigtsmæssig tilgang til denne type prototype. Feedback fra praktikpladsen har løbende justeret prioriteringer, og det tætte samarbejde har sikret, at prototypen afspejler reelle brugerbehov frem for hypotetiske scenarier.
+
+Projektet identificerer samtidig en række konkrete retninger for videreudvikling: integration af Apples native \texttt{Vision}-framework som lokal OCR-fallback ved ustabilt netværk, regex-baserede backup-handlingsknapper, forbedret sikkerhed med HTTPS og autentificering samt muligheden for virksomhedsspecifikke AI-modeller, der kan berige vejledningen med historiske vedligeholdelsesdata.
+
+Den overordnede konklusion, som deles af både projektets vejleder og Arkyn Studios, er entydig: anvendelsen af OCR og AI-modeller til at understøtte vedligeholdelsesteknikere i deres daglige arbejde er et stærkt og lovende koncept, der med stor sikkerhed vil spille en central rolle i fremtidens digitale vedligeholdelsesløsninger. Prototypen demonstrerer, at teknologierne er modne nok til at levere reel brugerværdi allerede i dag, og at Arkyn Studios har et solidt fundament at bygge videre på i udviklingen af deres kommende produktionsapplikation.

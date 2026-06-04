@@ -1,0 +1,58 @@
+\chapter{UI/UX Design}
+\label{chap:ux}
+
+\section{Målgruppe og designrationale}
+\label{sec:målgruppe}
+
+Applikationens primære brugere er vedligeholdelsesteknikere, der arbejder i industrielle produktionsmiljøer. En central observation fra behovskortlægningen i samarbejde med Arkyn Studios er, at en væsentlig del af denne brugergruppe udgøres af ældre herrer og kvinder, der ikke nødvendigvis har daglig erfaring med at betjene en iPad eller andre touchbaserede enheder. Mange er erfarne fagfolk med betydelig teknisk viden om maskiner og udstyr, men deres digitale fortrolighed varierer markant.
+
+Dette stiller særlige krav til designet. Det er ikke tilstrækkeligt at designe en applikation, der blot er funktionel — den skal være så intuitiv, at en bruger uden erfaring med mobile applikationer kan gennemføre kerneflowet fra kameraåbning til AI-genereret vejledning uden forudgående oplæring. Designfilosofien har derfor fra starten været at holde brugergrænsefladen så simpel og direkte som mulig: færre valg ad gangen, tydelige handlinger og ingen unødvendig kompleksitet.
+
+Denne tilgang er i overensstemmelse med krav NF4 fra kravspecifikationen, som eksplicit fastslår, at kerneflowet skal kunne gennemføres uden forudgående instruktion.
+
+\section{Designprincipper}
+\label{sec:designprincipper}
+
+Designet er bygget op om tre overordnede principper, der alle understøtter den brede og varierede brugergruppe.
+
+\textbf{Simpelt og lineært brugerflow.} Applikationen er organiseret omkring ét enkelt, lineært kerneflow: tag et billede $\rightarrow$ gennemgå de udtrukne data $\rightarrow$ modtag vedligeholdelsesvejledning. Brugeren præsenteres aldrig for mere end ét primært handlingsvalg ad gangen. Dette reducerer kognitiv belastning og minimerer risikoen for at navigere forkert — et hensyn der er særligt vigtigt for brugere med begrænset erfaring med touchskærme.
+
+\textbf{Store, tydelige interaktionselementer.} Knapper og trykflader er dimensioneret med generøs tapstørrelse for at imødekomme brugere, der måske er uvante med berøringsskærme eller arbejder med handsker på. Tekst er valgt i en let læselig skriftstørrelse, og farvekontrasten er høj nok til at sikre god læsbarhed selv i industrielle lysforhold med direkte sollys eller kunstig belysning.
+
+\textbf{Meningsfuld og umiddelbar feedback.} Brugeren holdes løbende orienteret om systemets tilstand via synlige loading-indikatorer og kortfattede statusbeskeder. Fejlsituationer — eksempelvis lav OCR-kvalitet eller netværksproblemer — kommunikeres i klart og handlingsorienteret sprog frem for tekniske fejlkoder, så brugeren altid ved, hvad det næste skridt er.
+
+Disse principper afspejler Nielsens klassiske usability-heuristikker~\cite{nielsen_heuristics}, særligt \textit{Visibility of system status}, \textit{Error prevention} og \textit{Recognition rather than recall}, der alle sigter mod at reducere brugerens mentale arbejdsbyrde.
+
+\section{Navigation og informationsarkitektur}
+\label{sec:navigation}
+
+Applikationen er struktureret som en \texttt{TabView} med to primære faner: \textbf{Kamera} og \textbf{Chat}. Denne fladstruktur er et bevidst designvalg. En dybere navigationshierarki med undermapper og indstillingssider ville øge kompleksiteten unødvendigt for en brugergruppe, der primært har ét formål med applikationen: at identificere en maskine og modtage vejledning hurtigt.
+
+Fanestrukturen giver brugeren et øjeblikkeligt overblik over de tilgængelige funktioner og eliminerer behovet for at huske, hvor en specifik funktion befinder sig. Dette er et vigtigt hensyn for brugere, der kun åbner applikationen sporadisk i forbindelse med vedligeholdelsesopgaver.
+
+\section{Chat-interface og bobledesign}
+\label{sec:chatdesign}
+
+Interaktionen med systemet er modelleret som en chat-samtale, hvilket er en velkendt paradigme for en bred brugergruppe. Resultater præsenteres som meddelelsesbob\-ler (\textit{bubbles}), der er differentieret visuelt efter indholdstype:
+
+\begin{itemize}
+  \item \textbf{EntitiesBubble} viser de strukturerede data, der er udtrukket fra maskinlabelen via OCR. Hvert felt præsenteres med tilhørende handlingsknapper (kopiér, søg, analyser), der giver brugeren kontrol over næste skridt.
+  \item \textbf{GuidanceBubble} præsenterer den AI-genererede vedligeholdelsesvejledning med tydelig opdeling i handlingstrin, sikkerhedsadvarsler og kildehenvisninger.
+  \item \textbf{FlaggedBubble} anvendes når OCR-confidence er under tærsklen på 60~\%. Boblen informerer brugeren klart om årsagen og opfordrer til at tage et nyt billede.
+  \item \textbf{ErrorBubble} håndterer netværksfejl og API-timeouts med en synlig rød farvemarkering og en \textit{Prøv igen}-knap, der lader brugeren gentage handlingen med ét tryk.
+  \item \textbf{LoadingHintBubble} vises under API-kald og kommunikerer systemets tilstand med en kort beskrivelse og en animeret tre-prikkers indikator.
+\end{itemize}
+
+Denne differentiering sikrer, at brugeren altid kan skelne mellem systemets tilstande uden at skulle læse teknisk information.
+
+\section{Kameraoverlay og videooptagelse}
+\label{sec:kameraoverlay}
+
+For at guide brugeren under optagelsen er der implementeret et kameraoverlay, der vises i de første seks sekunder. Overlayet indeholder en kort instruktion om at panorere kameraet fra venstre mod højre for store labels, og forsvinder automatisk, inden brugeren begynder optagelsen. Dette er et eksempel på, at systemet proaktivt reducerer brugerens behov for at huske instruktioner.
+
+Overlayet er implementeret via \texttt{UIHostingController} med \texttt{isUserInteractionEnabled = false}, hvilket sikrer, at berøringsinput passerer igennem til kameraets egne kontrolflader uden forstyrrelser.
+
+\section{Sprogunderstøttelse}
+\label{sec:sprog}
+
+Applikationen understøtter skift mellem dansk og engelsk vejledning via en globusknap i navigationslinjen i chat-visningen. Valget persisteres via \texttt{@AppStorage}, og sendes med i hvert API-kald til backenden, der derefter instruerer Claude-modellen til at generere vejledning på det ønskede sprog. Dette imødekommer kravet F7 og giver virksomheder med internationale teknikere mulighed for at anvende applikationen på begge sprog.

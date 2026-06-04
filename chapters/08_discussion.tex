@@ -1,0 +1,91 @@
+\chapter{Diskussion}
+\label{chap:discussion}
+
+Dette kapitel diskuterer systemets styrker og begrænsninger i et bredere perspektiv og peger på konkrete løsningsretninger for de identificerede udfordringer. Diskussionen fokuserer på tre centrale temaer: offline-robusthed og netværksusikkerhed, sikkerhed og datahåndtering samt muligheden for virksomhedsspecifikke AI-modeller.
+
+\section{Offline-robusthed og ustabilt netværk}
+\label{sec:offline}
+
+Den nuværende prototype er udelukkende afhængig af netværksforbindelsen til DTU-serveren for al funktionalitet. OCR-behandlingen sker via Google Cloud Vision, og AI-vejledningen genereres af Claude Haiku og begge cloud-baserede services, der kræver stabil internetforbindelse.
+
+Dette udgør en væsentlig begrænsning i den reelle brugskontekst. Arkyn Studios betjener industrikunder i en lang række geografiske områder, herunder olie- og gasselskaber i blandt andet USA, der opererer i produktionsmiljøer og på lokationer, hvor netværksdækning er utilstrækkelig eller helt fraværende. En tekniker, der er sendt ud til en kompressor-station i et fjerntliggende område, kan ikke forventes at have adgang til et stabilt mobilnetværk under alle omstændigheder.
+
+\subsection{Apple Vision Framework som lokal OCR-backup}
+\label{subsec:apple-vision}
+
+En naturlig løsning til dette problem er at integrere Apples native \texttt{Vision}-framework~\cite{apple_vision} som en lokal OCR-fallback. \texttt{Vision} kører udelukkende på enheden og kræver ingen netværksforbindelse, da modellen er en del af iOS-operativsystemet. Implementeringen ville følge dette princip:
+
+\begin{enumerate}
+  \item Ved kameraoptagelse tjekker applikationen serverens tilgængelighed via health-endpointet.
+  \item Hvis serveren er tilgængelig, anvendes den eksisterende cloud-pipeline (Google Cloud Vision + Claude).
+  \item Hvis serveren er utilgængelig eller svartiden er for høj, falder applikationen automatisk tilbage på \texttt{Vision}-framework til OCR-udtræk på enheden.
+\end{enumerate}
+
+Apples \texttt{VNRecognizeTextRequest} understøtter tekstgenkendelse på en lang række sprog og producerer resultater af høj kvalitet på velbelyste labels. Nøjagtigheden er sammenlignelig med cloud-løsningen for standardiserede industrilabels, om end Google Cloud Vision generelt klarer sig bedre på snavset eller delvist ulæselig tekst.
+
+\subsection{Lokal entitetsstrukturering med regex som fallback}
+\label{subsec:regex-fallback}
+
+Fraværet af netværksforbindelsen fjerner imidlertid ikke kun OCR-laget, men det fjerner også Claude-laget, der er ansvarligt for at strukturere rå OCR-tekst til typede entiteter med tilhørende handlingsknapper. Uden Claude vil brugeren se den rå OCR-tekst uden knapper og uden opdeling i felter som producent, model og serienummer.
+
+En løsning er at supplere med et regelbaseret struktureringslag, der anvender regulære udtryk (\textit{regex}) til at identificere og kategorisere de mest genkendelige informationstyper. Baseret på de mønstre, der typisk forekommer på industrielle maskinlabels, kan følgende regex-regler eksempelvis implementeres:
+
+\begin{table}[H]
+  \centering
+  \caption{Eksempler på regex-baseret entitetsidentifikation}
+  \label{tab:regex}
+  \begin{tabularx}{\textwidth}{@{}llX@{}}
+    \toprule
+    \textbf{Entitetstype} & \textbf{Eksempel på mønster} & \textbf{Matcheksempel} \\
+    \midrule
+    Serienummer   & \texttt{[A-Z]\{2,\}\textbackslash d\{4,\}} & \texttt{SN123456}, \texttt{ABC-78901} \\
+    \addlinespace
+    Effekt (kW)   & \texttt{\textbackslash d+(\textbackslash.\textbackslash d+)?\textbackslash s*kW} & \texttt{7.5 kW}, \texttt{11kW} \\
+    \addlinespace
+    Spænding      & \texttt{\textbackslash d+\textbackslash s*V} & \texttt{230V}, \texttt{400 V} \\
+    \addlinespace
+    IP-klasse     & \texttt{IP\textbackslash d\{2\}} & \texttt{IP54}, \texttt{IP65} \\
+    \addlinespace
+    Frekvens      & \texttt{\textbackslash d+\textbackslash s*Hz} & \texttt{50Hz}, \texttt{60 Hz} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Disse handlingsknapper vil naturligvis ikke have den samme kontekstuelle intelligens som Claude-genererede knapper, men de sikrer, at brugeren stadig får et minimalt brugbart resultat og eksempelvis mulighed for at kopiere et serienummer, selv uden netværksforbindelse. Fallback-knapper kan markeres visuelt med en distinkt farve for at signalere til brugeren, at de er genereret lokalt frem for AI-assisteret.
+
+\section{Sikkerhed og datahåndtering}
+\label{sec:sikkerhed}
+
+Den nuværende prototype er designet til internt brug og implementerer ikke brugerautentificering eller krypteret lagring af historik. I en produktionsklar version udgør dette en central designopgave, da systemet behandler potentielt følsom virksomhedsinformation og herunder maskin-serienumre, modelbetegnelser og vedligeholdelsesdata, der kan afspejle en virksomheds produktionskapacitet og maskinpark.
+
+Der er tre sikkerhedsaspekter, der kræver opmærksomhed i en videreudvikling:
+
+\textbf{API-nøgler og trafikkryptering.} I prototypen kommunikerer iOS-klienten med backenden over HTTP. En produktionsversion bør anvende HTTPS med TLS-certifikat, og API-nøgler bør aldrig sendes fra klienten og al kommunikation med Anthropic og Google bør ske server-side, som det allerede er tilfældet i den nuværende arkitektur.
+
+\textbf{Billeddata og privatlivshensyn.} Billeder der uploades til backenden sendes videre til Google Cloud Vision. Virksomheder med strenge regler for data behandling, der eksempelvis inden for forsvarsindustrien eller olie- og gassektoren kan have politikker der forbyder upload af produktionsrelaterede billeder til tredjeparts cloud-services. Den lokale fallback-løsning beskrevet i afsnit~\ref{subsec:apple-vision} løser dette problem i offline-scenariet, men for cloud-scenariet bør det overvejes at tilbyde mulighed for on-premise deployment af Vision-laget.
+
+\textbf{Autentificering og adgangsstyring.} En produktionsversion bør implementere token-baseret autentificering, eksempelvis via OAuth 2.0 eller SAML, der integrerer med virksomhedens eksisterende identitetsudbyder. Dette muliggør rollebaseret adgang, auditering af kald og deaktivering af kompromitterede enheder.
+
+\section{Virksomhedsspecifikke AI-modeller}
+\label{sec:custom-ai}
+
+Den nuværende løsning anvender en generel AI-model (Claude Haiku) til at generere vedligeholdelsesvejledning baseret på generel industriel viden. Denne tilgang er velegnet til en prototype og giver et stærkt udgangspunkt, men den har en iboende begrænsning: modellen kender ikke den specifikke maskinpark, vedligeholdelseshistorikken eller de interne procedurer hos den virksomhed, der anvender systemet.
+
+En videreudvikling kunne give virksomheder mulighed for at integrere en AI-model, der er trænet eller finjusteret på virksomhedens egne data. Dette åbner for en markant kvalitetsforbedring på tre områder:
+
+\textbf{Historikbaseret vejledning.} Hvis AI-modellen har adgang til virksomhedens vedligeholdelsesdatabase, kan den supplere den generelle vejledning med historisk information om den specifikke maskine og eksempelvis: \textit{''Denne motor (SN: AB12345) fik udskiftet lejer i februar 2024. Næste planlagte eftersyn er september 2026''}. Dette giver teknikeren et langt mere komplet beslutningsgrundlag.
+
+\textbf{Procedureoverholdelse.} Mange virksomheder har interne vedligeholdelsesstandarder, der afviger fra de generelle industrinormer. En virksomhedsspecifik model kan instrueres til altid at følge virksomhedens egne procedurer frem for generelle anbefalinger, hvilket reducerer risikoen for procedureovertrædelser.
+
+\textbf{Forbedret datasikkerhed.} En on-premise AI-model eliminerer behovet for at sende vedligeholdelsesdata til en ekstern cloud-service. Dette er afgørende for virksomheder, der opererer i regulerede industrier med strenge krav til dataopbevaring og behandling.
+
+Teknisk kan dette realiseres ved at erstatte API-kaldet til Anthropic med et kald til en selvhostet model (eksempelvis via Ollama eller en finjusteret LLM deployet i virksomhedens eget cloud-miljø). Arkitekturen i den nuværende middleware er forberedt til dette: Claude-klienten i Go er isoleret i \texttt{internal/ai}-pakken og kan erstattes med en alternativ klient uden at ændre i resten af systemet.
+
+\section{Fremtidigt arbejde: Android-understøttelse}
+\label{sec:android}
+
+Som beskrevet i afgrænsningen er applikationen udelukkende udviklet til iOS. Den server-side arkitektur, hvor al OCR- og AI-logik er placeret i Go-middlewaren bag et veldefineret REST-API, er imidlertid bevidst designet med fremtidig platform-udvidelse for øje.
+
+En Android-frontend kan tilkobles det eksisterende backend-lag uden ændringer i \texttt{/api/v1/extract} eller \texttt{/api/v1/analyze}. Android-klienten ville blot sende de samme multipart-requests og modtage de samme JSON-svar som iOS-klienten gør i dag. Dette er en direkte konsekvens af at holde forretningslogikken server-side frem for at implementere OCR og AI-kald direkte i klientappen.
+
+Beslutningen om at starte med iOS alene er forretningsmæssigt velbegrundet: Arkyn Studios' primære kundesegment anvender iOS-enheder, og prototypens formål er at dokumentere værdien af OCR og AI som teknologisk kombination og ikke at levere en færdig cross-platform løsning. Når konceptet er valideret, er udvidelsen til Android en naturlig og arkitektonisk ukompliceret næste skridt.

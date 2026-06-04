@@ -1,0 +1,118 @@
+\chapter{Metodologi}
+\label{chap:methodology}
+
+Dette kapitel beskriver de metodiske valg der har styret projektets planlægning og gennemførelse, samt begrundelserne for de teknologier der er anvendt i systemet.
+
+\section{Udviklingsproces}
+\label{sec:udviklingsproces}
+
+Projektet er gennemført som et iterativt ingeniørmæssigt udviklingsprojekt med inspiration fra agile metoder, primært Scrum og Kanban. Da projektet er udført af én udvikler i tæt tilknytning til Arkyn Studios, er den formelle Scrum udvikling forenklet, mens kerneprincipperne om iterativ udvikling og løbende evaluering er fastholdt.
+
+\subsection{Iterativ udviklingsmodel}
+
+Udviklingen er organiseret i iterationer, hvor hver iteration følger et fast forløb bestående af analyse, design, implementering og test. Denne model understøtter tidlig opdagelse af tekniske udfordringer og muliggør løbende tilpasning af scope og prioriteringer på baggrund af praktiske erfaringer.
+
+Tabel~\ref{tab:iterationer} viser den overordnede opdeling af udviklingsforløbet, som afspejler den tidsplan der blev fastlagt i projektets proposal-fase.
+
+\begin{table}[H]
+  \centering
+  \caption{Oversigt over projektets iterationer}
+  \label{tab:iterationer}
+  \begin{tabularx}{\textwidth}{@{}llX@{}}
+    \toprule
+    \textbf{Periode} & \textbf{Fokus} & \textbf{Indhold} \\
+    \midrule
+    Uge 10–11 & Analyse          & Problemdomæne, kravspecifikation, brugsscenarier \\
+    Uge 12–13 & Systemdesign     & Arkitektur, dataflow, API-design \\
+    Uge 14–16 & Frontend (Swift) & MVVM-struktur, kameraflow, chat-UI, bubble-system \\
+    Uge 17–18 & Backend (Go)     & REST API, middleware, OCR-integration \\
+    Uge 19    & AI-integration   & Claude Haiku integration, prompt-design, JSON-output \\
+    Uge 20    & Test             & Funktionel test, OCR-evaluering, brugerevaluering \\
+    Uge 21–22 & Dokumentation    & Rapportskrivning, refleksion, aflevering \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Kanban til opgavestyring}
+
+Til den løbende opgavestyring er Kanban anvendt som planlægningsværktøj. Opgaver er organiseret i kolonner (\textit{Backlog}, \textit{In Progress}, \textit{Done}), hvilket giver løbende overblik over fremdriften og sikrer at work-in-progress holdes på et overskueligt niveau. Dette har vist sig særligt nyttigt i et enkeltmandsprojekt, hvor risikoen for at sprede sig over for mange delproblemer samtidig er reel.
+
+\section{Teknologivalg}
+\label{sec:teknologivalg}
+
+Valget af teknologier er truffet på baggrund af en kombination af tekniske krav, projektets tidsramme og erfaringer fra Arkyn Studios' eksisterende udviklingsmiljø.
+
+\subsection{Swift og SwiftUI}
+\label{subsec:swift}
+
+Den mobile applikation er udviklet i Swift med SwiftUI som UI-framework. Swift er Apples primære programmeringssprog til iOS-udvikling og understøtter nativt MVVM-arkitekturmønstret via \texttt{@Published}, \texttt{@StateObject} og \texttt{@ObservedObject}. SwiftUI's deklarative tilgang reducerer mængden af boilerplate-kode sammenlignet med UIKit, og den reaktive datamodel sikrer at UI-lag automatisk opdateres ved ændringer i ViewModel-laget.
+
+Et centralt hensyn i valget af Swift har været understøttelse af \texttt{async}/\texttt{await}, som muliggør asynkrone netværkskald uden callback-helvede. I kombination med \texttt{@MainActor}-annotationen sikres korrekt trådstyring, så UI-opdateringer altid sker på main thread~\cite{swift_docs}.
+
+\subsection{Go}
+\label{subsec:go}
+
+Go er valgt som sprog til middleware-serveren af flere årsager. Go kompilerer til en enkelt statisk binær uden runtime-afhængigheder, hvilket forenkler deployment markant — serveren deployes som én eksekverbar fil via et automatiseret deploy-script. Go's standardbibliotek inkluderer en robust HTTP-server med understøttelse af Go 1.22's method-based routing (\texttt{"POST /api/v1/extract"}), hvilket eliminerer behovet for tredjeparts router-biblioteker.
+
+Go's concurrency-model med goroutines og channels egner sig desuden godt til I/O-tunge opgaver som videoupload og parallelle OCR-kald, selvom den nuværende prototype behandler requests sekventielt~\cite{go_docs}.
+
+\subsection{Google Cloud Vision}
+\label{subsec:google-vision}
+
+Google Cloud Vision er valgt som OCR-service på baggrund af dens dokumenterede nøjagtighed på industrielle labels og typeskilte. Tjenestens \texttt{DOCUMENT\_TEXT\_DETECTION}-feature er specifikt optimeret til tæt tekst i varierende layouts, modsat \texttt{TEXT\_DETECTION} der primært er beregnet til spredt tekst i naturlige scener.
+
+Et centralt forhold er Cloud Visions evne til at returnere confidence-scores på symbol-niveau, hvilket gør det muligt at beregne en gennemsnitlig OCR-nøjagtighed per billede og dermed implementere den confidence-baserede flagging-mekanisme, der er beskrevet i kravspecifikationen~\cite{google_vision}.
+
+\subsection{Anthropic Claude Haiku}
+\label{subsec:claude}
+
+I projektets proposal-fase var OpenAI API angivet som den planlagte AI-service til entitetsformatering og vedligeholdelsesvejledning. Under implementeringen blev dette ændret til Anthropic Claude Haiku (\texttt{claude-haiku-4-5}). Skiftet er begrundet i følgende tekniske overvejelser:
+
+\textbf{Lavere hallucinationsrate ved struktureret output:} Claude Haiku udviser generelt højere pålidelighed ved opgaver der kræver strikt struktureret JSON-output uden markdown-formatering eller preamble-tekst. Da systemets korrekte funktion afhænger af maskinlæsbart JSON fra AI-modellen, er dette en central egenskab~\cite{anthropic_claude}.
+
+\textbf{Sikkerhed i industriel kontekst:} Claude's sikkerhedsmodel er velegnet til en industriel vedligeholdelseskontekst, hvor vejledningen skal være præcis og konservativ. Modellen er instrueret til eksplicit at angive et \texttt{uncertainty\_level} og undlade at opfinde specifikke momentværdier eller proprietære serviceprocedurer, medmindre de er standardiserede industrikendskaber.
+
+\textbf{Synergi med OCR-output:} Claude håndterer effektivt den ukomplette og støjede tekst, som OCR-processen typisk producerer fra industrielle labels — herunder forkortelser, enheder og tekst med OCR-artefakter. Denne egenskab reducerer antallet af fejlklassificerede entiteter sammenlignet med modeller, der forventer velformateret inputtekst.
+
+\textbf{Hastighed og omkostninger:} Claude Haiku er Anthropic's hurtigste og mest omkostningseffektive model, hvilket er relevant for et system hvor svartiden er en ikke-funktionel kravspecifikation.
+
+\subsection{ffmpeg til videobehandling}
+\label{subsec:ffmpeg}
+
+Til udtræk af frames fra videooptagelser anvendes ffmpeg, som er et open source kommandolinjeværktøj til videobehandling. ffmpeg er valgt frem for programmatiske alternativer på grund af sin robusthed på tværs af videoformater og dens enkle integration via Go's \texttt{exec.CommandContext}. Frames udtrækkes med en rate på 1 billede per sekund (\texttt{-vf fps=1}), hvilket giver tilstrækkelig dækning af en panorering over en maskinel label uden at generere unødvendigt mange frames til OCR-behandling.
+
+\section{Alternativvurdering}
+\label{sec:alternativvurdering}
+
+Tabel~\ref{tab:alternativer} opsummerer de primære alternativer, der blev overvejet for systemets nøglekomponenter.
+
+\begin{table}[H]
+  \centering
+  \caption{Alternativvurdering af centrale teknologier}
+  \label{tab:alternativer}
+  \begin{tabularx}{\textwidth}{@{}lllX@{}}
+    \toprule
+    \textbf{Komponent} & \textbf{Valgt} & \textbf{Alternativ} & \textbf{Begrundelse for valg} \\
+    \midrule
+    OCR
+      & Google Cloud Vision
+      & Tesseract OCR
+      & Cloud Vision leverer markant højere nøjagtighed på industrielle labels samt symbol-niveau confidence-scores. Tesseract kræver lokal installation og yderligere konfiguration for samme resultatkvalitet \\
+    \addlinespace
+    AI-model
+      & Claude Haiku
+      & OpenAI GPT-4o mini
+      & Lavere hallucinationsrate ved JSON-output, bedre håndtering af OCR-støj og velegnet sikkerhedsmodel til industriel brug \\
+    \addlinespace
+    iOS framework
+      & SwiftUI
+      & UIKit
+      & SwiftUI's deklarative model reducerer kode og understøtter MVVM naturligt. UIKit er mere fleksibelt men kræver betydeligt mere boilerplate \\
+    \addlinespace
+    Backend sprog
+      & Go
+      & Node.js / Python
+      & Go's statiske binær forenkler deployment. Stærk standardbibliotek til HTTP og concurrency uden tunge frameworks \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

@@ -1,0 +1,132 @@
+\chapter{Implementering}
+\label{chap:implementation}
+
+Dette kapitel beskriver den tekniske implementering af systemets to hoveddele: iOS-frontenden udviklet i Swift og SwiftUI, samt Go-middlewaren der orkestrerer kommunikationen mellem klienten og de eksterne AI-services.
+
+\section{Frontend — Swift og SwiftUI}
+\label{sec:frontend}
+
+Frontenden er implementeret i Swift med SwiftUI som UI-framework. SwiftUI's deklarative tilgang passer naturligt til den komponentbaserede struktur, som designprincipperne foreskriver. Tilstandsstyringen følger MVVM-arkitekturmønstret~\cite{mvvm}, hvor \texttt{ViewModel}-laget håndterer al logik og kommunikation med backenden, mens \texttt{View}-laget udelukkende er ansvarligt for præsentationen.
+
+\subsection{Arkitektur og MVVM}
+\label{subsec:mvvm}
+
+Applikationens centrale \texttt{ViewModel} er \texttt{ChatViewModel}, der er markeret med \texttt{@MainActor} for at sikre, at alle UI-opdateringer sker på main-tråden. Klassen eksponerer en \texttt{@Published}-liste af \texttt{ChatMessage}-objekter, som SwiftUI automatisk reagerer på og gengiver. \texttt{ChatMessage} er en value type med et \texttt{MessageKind}-enum, der dækker alle mulige tilstande: \texttt{text}, \texttt{extractedEntities}, \texttt{guidance}, \texttt{flagged}, \texttt{loading} og \texttt{error}.
+
+Denne tilstandsmodel gør det muligt at erstatte en loading-boble in-place med det endelige svar, uden at indsætte et nyt element i listen. Det eliminerer flimmer i brugergrænsefladen og giver en naturlig chat-oplevelse:
+
+\begin{lstlisting}[language=Swift, caption={In-place erstatning af loading-besked i ChatViewModel}]
+if let idx = messages.firstIndex(where: { $0.id == placeholderId }) {
+    messages[idx] = result
+    scrollTrigger += 1
+}
+\end{lstlisting}
+
+\subsection{Kameraintegration og mediatyper}
+\label{subsec:kamera}
+
+Kameraintegration er implementeret via \texttt{UIImagePickerController} i en \texttt{UIViewControllerRepresentable}-wrapper ved navn \texttt{ImagePicker}. Komponenten understøtter både stillbilleder og videooptagelse ved at sætte \texttt{mediaTypes} til at inkludere både \texttt{UTType.image} og \texttt{UTType.movie}.
+
+Mediatypen afspejles i en \texttt{MediaType}-enum i \texttt{CameraViewModel}, der skelner mellem \texttt{image(UIImage)} og \texttt{video(URL)}. Denne skelnen er central for, hvilket API-endpoint der efterfølgende kaldes: billeder sendes til \texttt{/api/v1/extract} som JPEG-data, mens videoer uploades som rå \texttt{.mp4}-filer og behandles af serverens video-pipeline.
+
+\subsection{Fejlhåndtering og retry-mekanisme}
+\label{subsec:retry}
+
+Fejlhåndteringen er bygget op om en \texttt{RetryContext}-enum, der indeholder al nødvendig information til at gentage en fejlet handling. Når brugeren trykker \textit{Prøv igen} på en \texttt{ErrorBubble}, kaldes \texttt{ChatViewModel.retry(messageId:context:)}, der genkender konteksten og kalder det korrekte endpoint igen — med den originale loading-boble erstattet frem for en ny tilføjet:
+
+\begin{lstlisting}[language=Swift, caption={Retry-mekanisme baseret på RetryContext}]
+func retry(messageId: UUID, context: RetryContext) async {
+    switch context {
+    case .extractImage(let imageData):
+        await extractImage(imageData, replaceMessageId: messageId)
+    case .extractVideo(let videoURL):
+        await extractVideo(videoURL, replaceMessageId: messageId)
+    case .analyzeEntity(let entity, let context):
+        await analyzeEntity(entity, context: context,
+                            replaceMessageId: messageId)
+    case .sendChatMessage(let text, let imageData):
+        currentMessage = text
+        await sendMessage(withImage: imageData,
+                         replaceMessageId: messageId)
+    }
+}
+\end{lstlisting}
+
+\section{Backend — Go og middleware-pipeline}
+\label{sec:backend}
+
+Backenden er implementeret som en Go-baseret middleware-service, der fungerer som orkestrerende lag mellem iOS-klienten og de eksterne AI-services. Valget af Go er begrundet i sprogets lave latens, enkle concurrency-model via goroutines og den kompakte deploymentflade, der er velegnet til en prototype~\cite{go_docs}.
+
+Serveren eksponerer fire HTTP-endpoints via \texttt{net/http}'s standard multiplexer:
+
+\begin{table}[H]
+  \centering
+  \caption{API-endpoints}
+  \label{tab:endpoints}
+  \begin{tabularx}{\textwidth}{@{}llX@{}}
+    \toprule
+    \textbf{Metode} & \textbf{Sti} & \textbf{Beskrivelse} \\
+    \midrule
+    GET  & \texttt{/health}          & Returnerer serverens tilstand og tidsstempel \\
+    \addlinespace
+    GET  & \texttt{/version}         & Returnerer den aktuelle API-version \\
+    \addlinespace
+    POST & \texttt{/api/v1/extract}  & Modtager billede eller video, kører OCR og returnerer strukturerede entiteter \\
+    \addlinespace
+    POST & \texttt{/api/v1/analyze}  & Modtager en entitet og returnerer AI-genereret vedligeholdelsesvejledning \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Extract-pipeline}
+\label{subsec:extract}
+
+\texttt{/api/v1/extract} er systemets primære indgangspunkt og håndterer begge mediatyper. Handleren følger dette forløb:
+
+\begin{enumerate}
+  \item Multipart-formen parses med en øvre grænse på 50~MB for at understøtte videoer.
+  \item Afhængigt af om feltet \texttt{image} eller \texttt{video} er til stede, vælges den tilsvarende OCR-sti.
+  \item For billeder sendes bytes direkte til Google Cloud Vision via \texttt{DOCUMENT\_TEXT\_DETECTION}.
+  \item For videoer ekstraheres frames med \texttt{ffmpeg} ved 1 FPS, hvorefter OCR køres på hvert enkelt frame, og resultatteksten aggregeres.
+  \item Hvis den gennemsnitlige confidence er under 60~\%, returneres svaret med \texttt{flagged\_for\_review: true} uden at kalde Claude.
+  \item Ellers sendes den rå OCR-tekst til Claude Haiku, der formaterer den til strukturerede JSON-entiteter med tilhørende handlingstyper.
+\end{enumerate}
+
+\subsection{Analyze-pipeline}
+\label{subsec:analyze}
+
+\texttt{/api/v1/analyze} modtager den entitet, brugeren har valgt at analysere, samt kontekstentiteterne fra extract-steget. Claude Haiku instrueres via en fastlåst system-prompt til at returnere et JSON-objekt med felterne \texttt{general\_guidance}, \texttt{safety\_notes}, \texttt{source\_references} og \texttt{uncertainty\_level}. Sprogvalget — dansk eller engelsk — videregives fra iOS-klienten og oversættes til en eksplicit sprogbetingelse i prompten.
+
+\subsection{Valg af Claude Haiku frem for alternativer}
+\label{subsec:claude-valg}
+
+I forbindelse med valget af AI-model blev Anthropic Claude Haiku~\cite{anthropic_claude} valgt frem for sammenlignelige alternativer som OpenAI GPT-4o Mini. Valget er baseret på tre faktorer:
+
+\textbf{Lavere hallucinationsrate.} Anthropics Constitutional AI-metode~\cite{anthropic_claude} er designet til at minimere situationer, hvor modellen opfinder information, der ikke er til stede i inputtet — et kritisk krav i en vedligeholdelseskontekst, hvor forkerte instruktioner kan medføre sikkerhedsrisici.
+
+\textbf{Struktureret JSON-output.} Claude Haiku følger stringent strukturerede promptinstruktioner og returnerer konsekvent validt JSON, hvilket forenkler parsing-laget i Go-middlewaren og reducerer behovet for defensiv fejlhåndtering.
+
+\textbf{Naturlig synergi med OCR-workflow.} Kombinationen af Google Cloud Vision og Claude Haiku giver en veldefineret to-trins pipeline: Vision udtrækker teksten, Claude strukturerer og fortolker den. Da begge services leverer veldokumenterede REST-API'er, holdes integrationskompleksiteten lav.
+
+\subsection{Sikring af API-nøgler}
+\label{subsec:sikkerhed}
+
+I overensstemmelse med krav NF6 indgår ingen API-nøgler i klientkoden eller versionsstyringen. Nøglerne til Anthropic og Google Cloud Vision indlæses udelukkende fra miljøvariabler på serveren via en \texttt{config}-pakke, der terminerer programmet ved opstart, hvis nøglerne ikke er sat. På serveren gemmes nøglerne i en \texttt{.env}-fil, der er eksplicit ekskluderet fra Git-historikken.
+
+\section{Deployment}
+\label{sec:deployment}
+
+Backenden er deployet på en DTU-server (\texttt{130.225.170.229:8080}) som en Linux-systemtjeneste administreret via \texttt{systemd}. Et dedikeret deploy-script (\texttt{deploy.sh}) automatiserer hele processen: det kører de lokale Go-tests, cross-kompilerer til Linux/amd64, kopierer binæren via SSH og genstarter tjenesten. Dette sikrer, at deploys kun sker, når alle tests er grønne, og at serveren altid kører en verificeret build.
+
+\begin{lstlisting}[language=bash, caption={Uddrag af deploy-scriptets kernetrin}]
+# Kør lokale tests – stopper scriptet ved fejl
+go test ./...
+
+# Cross-kompilér til Linux
+GOOS=linux GOARCH=amd64 go build -o arkyn-server ./cmd/server/
+
+# Stop service, kopiér binær, genstart
+ssh "$SERVER" "sudo systemctl stop arkyn"
+scp "$LOCAL_MIDDLEWARE/arkyn-server" "$SERVER:~/arkyn-middleware/.../arkyn-server"
+ssh "$SERVER" "sudo systemctl restart arkyn"
+\end{lstlisting}

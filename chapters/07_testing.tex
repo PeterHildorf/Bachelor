@@ -1,0 +1,99 @@
+\chapter{Test og evaluering}
+\label{chap:testing}
+
+Dette kapitel beskriver den testindsats der er gennemført for at verificere systemets funktionalitet og brugbarhed. Testningen kombinerer automatiserede enhedstests af backend-endpoints med manuel funktionstest og en bredere empirisk evaluering med fysiske maskinlabels og billeder fra varierende kilder.
+
+\section{Testmiljø og teststrategi}
+\label{sec:testmiljø}
+
+For at sikre, at ny kode er funktionel inden den pushes til produktionsserveren på DTU, er der etableret et lokalt testmiljø, der spejler serveropsætningen. Testmiljøet kører Go-backenden lokalt på port 8080 og er konfigureret med de samme miljøvariabler som produktionsmiljøet. Dette giver mulighed for at validere ændringer isoleret, inden de deployes via det automatiserede deploy-script.
+
+Teststrategien kombinerer tre niveauer:
+
+\begin{enumerate}
+  \item \textbf{Enhedstest} af backend-handlers via Go's standardtestframework
+  \item \textbf{Manuel funktionstest} af den samlede pipeline med reelle billeder og videoer
+  \item \textbf{Empirisk evaluering} af OCR-nøjagtighed og AI-vejledningskvalitet på tværs af forskelligartede testmaterialer
+\end{enumerate}
+
+\section{Enhedstest}
+\label{sec:enhedstest}
+
+Backend-endpoints er dækket af enhedstests implementeret i Go's \texttt{testing}-pakke. Tests køres lokalt som en del af deploy-flowet og vil stoppe en deployment, hvis de fejler.
+
+\subsection{Health- og version-endpoints}
+\label{subsec:health-test}
+
+\texttt{TestHealthHandler} verificerer, at \texttt{GET /health} returnerer HTTP 200 og en ikke-tom JSON-body. \texttt{TestVersionHandler} verificerer tilsvarende, at \texttt{GET /version} returnerer HTTP 200 og et ikke-tomt \texttt{version}-felt i JSON-svaret. Begge tests anvender \texttt{httptest.NewRecorder} til at kalde handleren direkte uden en reel HTTP-server.
+
+\subsection{Validering af extract-handler}
+\label{subsec:extract-test}
+
+\texttt{TestExtractHandler\_Validation} dækker to negative testcases:
+
+\begin{itemize}
+  \item \textbf{Missing Multipart Form:} En request med \texttt{Content-Type: text/plain} sendes til \texttt{/api/v1/extract}. Handleren forventes at returnere HTTP 400, inden den forsøger at kontakte OCR- eller AI-servicen.
+  \item \textbf{Missing Image Field:} En korrekt multipart-form sendes, men uden et \texttt{image}-felt. Handleren forventes at returnere HTTP 400.
+\end{itemize}
+
+I begge cases sendes \texttt{nil} ind som Vision- og Claude-klient. Hvis valideringen fejler og koden forsøger at kontakte servicene, vil testen crashe med en panic, der beviser at valideringen er utilstrækkelig.
+
+\subsection{Validering af analyze-handler}
+\label{subsec:analyze-test}
+
+\texttt{TestAnalyzeHandler\_Validation} dækker fire negative testcases:
+
+\begin{itemize}
+  \item Tom body
+  \item Manglende \texttt{target\_label}
+  \item Manglende \texttt{target\_value}
+  \item Ugyldig JSON-syntaks
+\end{itemize}
+
+Alle fire cases forventer HTTP 400. Testene er struktureret som tabelbaserede tests (\textit{table-driven tests}), hvilket gør det let at tilføje nye testcases fremadrettet.
+
+\section{Manuel funktionstest med reelle testmaterialer}
+\label{sec:manuel-test}
+
+For at evaluere systemets praktiske anvendelighed er der gennemført manuel testning med et bredt udvalg af billeder og videoer. Testmaterialerne er valgt for at dække de variationer, en tekniker realistisk vil møde i felten.
+
+\subsection{Typeskilte fra praktikpladsen}
+\label{subsec:motor-test}
+
+Det primære testmateriale er typeskilte og mærkater fra industrielle motorer, der har stået i Arkyn Studios' lokaler under praktikopholdet. Disse labels er repræsentative for den faktiske brug og udgør dermed den mest relevante testgruppe. Labeltyper inkluderer blandt andet:
+
+\begin{itemize}
+  \item Elektriske motorer med felter for producent, model, effekt (kW), spænding, strøm og frekvens
+  \item Drevenheder med serienumre, gear-ratio og smøreanbefalinger
+  \item Labels med kombineret dansk og engelsk tekst samt labels på tysk og andre europæiske sprog
+\end{itemize}
+
+OCR-udtræk på disse labels viser gennemgående høj confidence, og Claude strukturerer korrekt entiteterne i de relevante kategorier. Den AI-genererede vedligeholdelsesvejledning er relevant og handlingsorienteret, med korrekt placerede sikkerhedsadvarsler om eksempelvis frakobling af strøm inden vedligehold.
+
+\subsection{Billeder fra internettet}
+\label{subsec:internet-test}
+
+For at bredde testdækningen ud er der suppleret med billeder fra internettet af labels på:
+
+\begin{itemize}
+  \item Kemiske flasker og beholdere med GHS-fareadvarsler og sammensætningsinformation
+  \item Mobiltelefoner og elektronik med regulatoriske labels (FCC, CE-mærkning, IMEI)
+  \item Industrielt udstyr fra producenter som SEW-Eurodrive, ABB og Siemens
+\end{itemize}
+
+Disse tests viser, at systemet generaliserer godt til domæner ud over de primære vedligeholdelsesscenarier. Kemiske labels aktiverer korrekt udvidede sikkerhedsadvarsler i den AI-genererede vejledning, og elektroniklabels struktureres med relevante felter som IMEI og regulatorisk godkendelse.
+
+\subsection{Test af video-pipeline}
+\label{subsec:video-test}
+
+Video-pipelinen er testet med optagelser af labels, der er for store til at indfange i ét billede. Testene bekræfter, at ffmpeg-frame-udtræk ved 1 FPS kombineret med aggregering af OCR-tekst fra de individuelle frames giver et komplet tekstudtræk, der er sammenligneligt med et enkelt billede af god kvalitet.
+
+\subsection{Test af confidence-tærsklen}
+\label{subsec:confidence-test}
+
+Systemets confidence-mekanisme er testet ved bevidst at uploade billeder af lav kvalitet: slørede billeder, billeder taget i dårligt lys og billeder med kraftig refleksion. I alle tilfælde returnerer systemet \texttt{flagged\_for\_review: true} og viser \texttt{FlaggedBubble} til brugeren frem for at sende ukorrekt data videre til Claude.
+
+\section{Opsummering}
+\label{sec:test-opsummering}
+
+Testningen bekræfter, at systemet lever op til de funktionelle og ikke-funktionelle krav opstillet i kravspecifikationen. Backend-endpoints håndterer ugyldige inputs korrekt, og den samlede pipeline producerer relevante og handlingsorienterede resultater på tværs af et bredt udvalg af reelle testmaterialer. Confidence-mekanismen fungerer som forventet og forhindrer, at ukvalificerede OCR-resultater videregives til AI-laget.
