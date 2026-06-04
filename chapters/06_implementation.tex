@@ -102,7 +102,7 @@ Serveren eksponerer fire HTTP-endpoints via \texttt{net/http}'s standard multipl
 
 I forbindelse med valget af AI-model blev Anthropic Claude Haiku~\cite{anthropic_claude} valgt frem for sammenlignelige alternativer som OpenAI GPT-4o Mini. Valget er baseret på tre faktorer:
 
-\textbf{Lavere hallucinationsrate.} Anthropics Constitutional AI-metode~\cite{anthropic_claude} er designet til at minimere situationer, hvor modellen opfinder information, der ikke er til stede i inputtet — et kritisk krav i en vedligeholdelseskontekst, hvor forkerte instruktioner kan medføre sikkerhedsrisici.
+\textbf{Lavere hallucinationsrate.} Anthropics Constitutional AI-metode~\cite{anthropic_claude} er designet til at minimere situationer, hvor modellen opfinder information, der ikke er til stede i inputtet, hvilket er et kritisk krav i en vedligeholdelseskontekst, hvor forkerte instruktioner kan medføre sikkerhedsrisici.
 
 \textbf{Struktureret JSON-output.} Claude Haiku følger stringent strukturerede promptinstruktioner og returnerer konsekvent validt JSON, hvilket forenkler parsing-laget i Go-middlewaren og reducerer behovet for defensiv fejlhåndtering.
 
@@ -119,13 +119,13 @@ I overensstemmelse med krav NF6 indgår ingen API-nøgler i klientkoden eller ve
 Backenden er deployet på en DTU-server (\texttt{130.225.170.229:8080}) som en Linux-systemtjeneste administreret via \texttt{systemd}. Et dedikeret deploy-script (\texttt{deploy.sh}) automatiserer hele processen: det kører de lokale Go-tests, cross-kompilerer til Linux/amd64, kopierer binæren via SSH og genstarter tjenesten. Dette sikrer, at deploys kun sker, når alle tests er grønne, og at serveren altid kører en verificeret build.
 
 \begin{lstlisting}[language=bash, caption={Uddrag af deploy-scriptets kernetrin}]
-# Kør lokale tests – stopper scriptet ved fejl
+# Kør lokale tests, stopper scriptet ved fejl
 go test ./...
 
-# Cross-kompilér til Linux
+# Cross-kompiler til Linux
 GOOS=linux GOARCH=amd64 go build -o arkyn-server ./cmd/server/
 
-# Stop service, kopiér binær, genstart
+# Stop service, kopier binær, genstart
 ssh "$SERVER" "sudo systemctl stop arkyn"
 scp "$LOCAL_MIDDLEWARE/arkyn-server" "$SERVER:~/arkyn-middleware/.../arkyn-server"
 ssh "$SERVER" "sudo systemctl restart arkyn"

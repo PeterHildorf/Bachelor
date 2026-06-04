@@ -24,6 +24,7 @@
 \setlength{\parskip}{6pt}
 \setlength{\parindent}{0pt}
 
+
 % ── Farver ───────────────────────────────────────────────────
 \usepackage[dvipsnames]{xcolor}
 \definecolor{dtuRed}{RGB}{153,0,0}
@@ -109,7 +110,11 @@
   sensitive=true
 }
 
-\lstset{style=base}
+\lstset{style=base,
+  literate=
+    {ø}{{\o}}1 {æ}{{\ae}}1 {å}{{\aa}}1
+    {Ø}{{\O}}1 {Æ}{{\AE}}1 {Å}{{\AA}}1
+}
 
 % Shorthand kommandoer til sprog
 \newcommand{\swift}[1]{\lstinline[language=Swift]{#1}}

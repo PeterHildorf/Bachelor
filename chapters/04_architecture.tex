@@ -31,7 +31,7 @@ iOS-applikationen er struktureret efter MVVM-mønstret (Model-View-ViewModel), s
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.85\textwidth]{figures/mvvmarkitektur.png}
+  \includegraphics[width=0.85\textwidth]{figures/MVVM_final.png}
   \caption{MVVM-arkitektur i iOS-applikationen}
   \label{fig:mvvm}
 \end{figure}
@@ -45,12 +45,20 @@ iOS-applikationen er struktureret efter MVVM-mønstret (Model-View-ViewModel), s
   \item \texttt{ExtractionResult} — det samlede resultat af et extract-kald med entiteter, råtekst, confidence og review-flag
 \end{itemize}
 
-\textbf{ViewModel-laget} indeholder applikationens logik og fungerer som bindeled mellem View og netværkslaget:
+\textbf{ViewModel-laget} indeholder applikationens logik og fungerer som bindeled mellem View-laget og \texttt{NetworkService}:
 
 \begin{itemize}
   \item \texttt{ChatViewModel} er annoteret med \texttt{@MainActor} og eksponerer \texttt{@Published}-properties til View-laget. ViewModellen implementerer et \textit{placeholder-replace-pattern}: når en netværksoperation startes, indsættes en loading-besked med et foruddefineret ID, som efterfølgende erstattes in-place af det endelige svar. Dette eliminerer flimmer i UI'et og bevarer beskedhistorikken intakt.
   \item \texttt{CameraViewModel} håndterer tilstanden for kamera-flowet, herunder valg af medie (billede eller video) og navigation til chat-visningen.
 \end{itemize}
+
+\textbf{NetworkService} fungerer som applikationens netværkslag og er det 
+eneste sted der kommunikerer direkte med Go-middlewaren. \texttt{ChatViewModel} 
+kalder \texttt{NetworkService.shared.extract()} og 
+\texttt{NetworkService.shared.analyze()} via Swift's \texttt{async/await}, 
+og \texttt{NetworkService} returnerer henholdsvis \texttt{ExtractionResult} 
+og \texttt{MaintenanceGuidance} til \texttt{ChatViewModel}.
+
 
 \textbf{View-laget} er implementeret i SwiftUI og består primært af \texttt{ChatView}, \texttt{CameraView} og et system af seks beskedbubble-typer, der renderer de forskellige \texttt{MessageKind}-tilstande.
 
@@ -87,16 +95,7 @@ Figur~\ref{fig:flow-image} viser det komplette dataflow for det primære use cas
 
 \begin{figure}[H]
   \centering
-  % \includegraphics[width=\textwidth]{figures/sequence_image}
-  \fbox{\parbox{0.9\textwidth}{\centering\vspace{2cm}
-    \textit{[Figur: Sekvensdiagram — billedflow]}\\
-    UIImage → jpegData(0.8) → multipart POST /api/v1/extract\\
-    → Vision OCR (DOCUMENT\_TEXT\_DETECTION)\\
-    → averageSymbolConfidence()\\
-    → [confidence < 0.60 → FlaggedForReview]\\
-    → Claude FormatEntities() → ExtractionResult JSON\\
-    → Swift decode → EntitiesBubble
-  \vspace{2cm}}}
+  \includegraphics[width=\textwidth]{figures/AppFlowDiagram.png}
   \caption{Sekvensdiagram for billedbaseret udtræk}
   \label{fig:flow-image}
 \end{figure}
