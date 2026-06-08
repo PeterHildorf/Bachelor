@@ -3,7 +3,7 @@
 
 Dette kapitel beskriver den tekniske implementering af systemets to hoveddele: iOS-frontenden udviklet i Swift og SwiftUI, samt Go-middlewaren der orkestrerer kommunikationen mellem klienten og de eksterne AI-services.
 
-\section{Frontend — Swift og SwiftUI}
+\section{Frontend Swift og SwiftUI}
 \label{sec:frontend}
 
 Frontenden er implementeret i Swift med SwiftUI som UI-framework. SwiftUI's deklarative tilgang passer naturligt til den komponentbaserede struktur, som designprincipperne foreskriver. Tilstandsstyringen følger MVVM-arkitekturmønstret~\cite{mvvm}, hvor \texttt{ViewModel}-laget håndterer al logik og kommunikation med backenden, mens \texttt{View}-laget udelukkende er ansvarligt for præsentationen.
@@ -52,7 +52,7 @@ func retry(messageId: UUID, context: RetryContext) async {
 }
 \end{lstlisting}
 
-\section{Backend — Go og middleware-pipeline}
+\section{Backend Go og middleware-pipeline}
 \label{sec:backend}
 
 Backenden er implementeret som en Go-baseret middleware-service, der fungerer som orkestrerende lag mellem iOS-klienten og de eksterne AI-services. Valget af Go er begrundet i sprogets lave latens, enkle concurrency-model via goroutines og den kompakte deploymentflade, der er velegnet til en prototype~\cite{go_docs}.
@@ -95,7 +95,7 @@ Serveren eksponerer fire HTTP-endpoints via \texttt{net/http}'s standard multipl
 \subsection{Analyze-pipeline}
 \label{subsec:analyze}
 
-\texttt{/api/v1/analyze} modtager den entitet, brugeren har valgt at analysere, samt kontekstentiteterne fra extract-steget. Claude Haiku instrueres via en fastlåst system-prompt til at returnere et JSON-objekt med felterne \texttt{general\_guidance}, \texttt{safety\_notes}, \texttt{source\_references} og \texttt{uncertainty\_level}. Sprogvalget — dansk eller engelsk — videregives fra iOS-klienten og oversættes til en eksplicit sprogbetingelse i prompten.
+\texttt{/api/v1/analyze} modtager den entitet, brugeren har valgt at analysere, samt kontekstentiteterne fra extract-steget. Claude Haiku instrueres via en fastlåst system-prompt til at returnere et JSON-objekt med felterne \texttt{general\_guidance}, \texttt{safety\_notes}, \texttt{source\_references} og \texttt{uncertainty\_level}. Sprogvalget dansk eller engelsk, videregives fra iOS-klienten og oversættes til en eksplicit sprogbetingelse i prompten.
 
 \subsection{Valg af Claude Haiku frem for alternativer}
 \label{subsec:claude-valg}
@@ -104,7 +104,7 @@ I forbindelse med valget af AI-model blev Anthropic Claude Haiku~\cite{anthropic
 
 \textbf{Lavere hallucinationsrate.} Anthropics Constitutional AI-metode~\cite{anthropic_claude} er designet til at minimere situationer, hvor modellen opfinder information, der ikke er til stede i inputtet, hvilket er et kritisk krav i en vedligeholdelseskontekst, hvor forkerte instruktioner kan medføre sikkerhedsrisici.
 
-\textbf{Struktureret JSON-output.} Claude Haiku følger stringent strukturerede promptinstruktioner og returnerer konsekvent validt JSON, hvilket forenkler parsing-laget i Go-middlewaren og reducerer behovet for defensiv fejlhåndtering.
+\textbf{Struktureret JSON-output.} Claude Haiku følger stringent strukturerede promptinstruktioner og returnerer konsekvent validt JSON, hvilket forenkler parsing-laget i Go-middlewaren og reducerer behovet for fejlhåndtering.
 
 \textbf{Naturlig synergi med OCR-workflow.} Kombinationen af Google Cloud Vision og Claude Haiku giver en veldefineret to-trins pipeline: Vision udtrækker teksten, Claude strukturerer og fortolker den. Da begge services leverer veldokumenterede REST-API'er, holdes integrationskompleksiteten lav.
 

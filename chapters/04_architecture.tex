@@ -15,7 +15,6 @@ Systemet er opbygget som en tre-lags klient-server-arkitektur bestående af en i
   \label{fig:system-overview}
 \end{figure}
 
-
 \textbf{iOS-applikationen} kører på teknikerens iPhone eller iPad og udgør brugergrænsefladen. Al logik i klientlaget er organiseret efter MVVM-mønstret (beskrevet i afsnit~\ref{sec:mvvm}). Kommunikation med serveren sker udelukkende via HTTP over det lokale netværk eller internet.
 
 \textbf{Go middleware-serveren} er deployeret på en DTU-server (\texttt{130.225.170.229:8080}) og fungerer som det centrale orkestreringslag. Serveren modtager mediefiler fra klienten, koordinerer kald til eksterne AI-services og returnerer strukturerede svar til klienten. Ved at placere al AI-logik i middleware-laget undgås eksponering af API-nøgler i klientkoden, og det bliver muligt at udskifte individuelle services uden ændringer i iOS-applikationen.
@@ -39,10 +38,10 @@ iOS-applikationen er struktureret efter MVVM-mønstret (Model-View-ViewModel), s
 \textbf{Model-laget} repræsenterer applikationens datastrukturer. De centrale modeller er:
 
 \begin{itemize}
-  \item \texttt{ChatMessage} — en besked i chatten med en tilhørende \texttt{MessageKind}-enum der dækker seks tilstande: \texttt{text}, \texttt{extractedEntities}, \texttt{guidance}, \texttt{flagged}, \texttt{loading} og \texttt{error}
-  \item \texttt{ExtractedEntity} — én identificeret entitet fra OCR-resultatet med label, værdi og tilladte handlinger
-  \item \texttt{MaintenanceGuidance} — den strukturerede vedligeholdelsesvejledning returneret af Claude
-  \item \texttt{ExtractionResult} — det samlede resultat af et extract-kald med entiteter, råtekst, confidence og review-flag
+  \item \texttt{ChatMessage}: en besked i chatten med en tilhørende \texttt{MessageKind}-enum der dækker seks tilstande: \texttt{text}, \texttt{extractedEntities}, \texttt{guidance}, \texttt{flagged}, \texttt{loading} og \texttt{error}
+  \item \texttt{ExtractedEntity}: én identificeret entitet fra OCR-resultatet med label, værdi og tilladte handlinger
+  \item \texttt{MaintenanceGuidance}: den strukturerede vedligeholdelsesvejledning returneret af Claude
+  \item \texttt{ExtractionResult}: det samlede resultat af et extract-kald med entiteter, råtekst, confidence og review-flag
 \end{itemize}
 
 \textbf{ViewModel-laget} indeholder applikationens logik og fungerer som bindeled mellem View-laget og \texttt{NetworkService}:
@@ -52,13 +51,7 @@ iOS-applikationen er struktureret efter MVVM-mønstret (Model-View-ViewModel), s
   \item \texttt{CameraViewModel} håndterer tilstanden for kamera-flowet, herunder valg af medie (billede eller video) og navigation til chat-visningen.
 \end{itemize}
 
-\textbf{NetworkService} fungerer som applikationens netværkslag og er det 
-eneste sted der kommunikerer direkte med Go-middlewaren. \texttt{ChatViewModel} 
-kalder \texttt{NetworkService.shared.extract()} og 
-\texttt{NetworkService.shared.analyze()} via Swift's \texttt{async/await}, 
-og \texttt{NetworkService} returnerer henholdsvis \texttt{ExtractionResult} 
-og \texttt{MaintenanceGuidance} til \texttt{ChatViewModel}.
-
+\textbf{NetworkService} fungerer som applikationens netværkslag og er det eneste sted der kommunikerer direkte med Go-middlewaren. \texttt{ChatViewModel} kalder \texttt{NetworkService.shared.extract()} og \texttt{NetworkService.shared.analyze()} via Swift's \texttt{async/await}, og \texttt{NetworkService} returnerer henholdsvis \texttt{ExtractionResult} og \texttt{MaintenanceGuidance} til \texttt{ChatViewModel}.
 
 \textbf{View-laget} er implementeret i SwiftUI og består primært af \texttt{ChatView}, \texttt{CameraView} og et system af seks beskedbubble-typer, der renderer de forskellige \texttt{MessageKind}-tilstande.
 
@@ -75,71 +68,46 @@ Middleware-serverens REST API eksponerer fire endpoints, som er opsummeret i tab
     \toprule
     \textbf{Metode} & \textbf{Endpoint} & \textbf{Beskrivelse} \\
     \midrule
-    \texttt{GET}  & \texttt{/health}          & Returnerer serverens status og tidsstempel. Anvendes af iOS-klienten til at vise forbindelsesstatus i realtid \\
+    \texttt{GET} & \texttt{/health} & Returnerer serverens status og tidsstempel. Anvendes af iOS-klienten til at vise forbindelsesstatus i realtid \\
     \addlinespace
-    \texttt{GET}  & \texttt{/version}         & Returnerer API-versionsnummer \\
+    \texttt{GET} & \texttt{/version} & Returnerer API-versionsnummer \\
     \addlinespace
-    \texttt{POST} & \texttt{/api/v1/extract}  & Modtager et billede eller en video som \texttt{multipart/form-data}, kører OCR og returnerer strukturerede entiteter som JSON \\
+    \texttt{POST} & \texttt{/api/v1/extract} & Modtager et billede eller en video som \texttt{multipart/form-data}, kører OCR og returnerer strukturerede entiteter som JSON \\
     \addlinespace
-    \texttt{POST} & \texttt{/api/v1/analyze}  & Modtager en valgt entitet med kontekst som JSON og returnerer struktureret vedligeholdelsesvejledning \\
+    \texttt{POST} & \texttt{/api/v1/analyze} & Modtager en valgt entitet med kontekst som JSON og returnerer struktureret vedligeholdelsesvejledning \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
 Routingen implementeres via Go 1.22's indbyggede \texttt{http.ServeMux} med method-prefixed patterns, eksempelvis \texttt{"POST /api/v1/extract"}, hvilket eliminerer behovet for tredjeparts routing-biblioteker og giver klar adskillelse af HTTP-metoder på compilerniveau.
 
-\section{Dataflow: Billedbaseret udtræk}
-\label{sec:dataflow-billede}
+\section{Dataflow}
+\label{sec:dataflow}
 
-Figur~\ref{fig:flow-image} viser det komplette dataflow for det primære use case: upload af et billede og udtræk af maskinentiteter.
+Figur~\ref{fig:flow-image} viser det komplette dataflow fra teknikeren fotograferer et typeskilt til AI-vejledningen vises i applikationen.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{figures/AppFlowDiagram.png}
-  \caption{Sekvensdiagram for billedbaseret udtræk}
+  \caption{Sekvensdiagram for billedbaseret udtræk og AI-vejledning}
   \label{fig:flow-image}
 \end{figure}
 
-Forløbet er som følger:
+\subsection{Billedbaseret udtræk}
 
-\begin{enumerate}
-  \item Teknikeren optager et billede via \texttt{ImagePicker}, som returnerer et \texttt{UIImage}-objekt til \texttt{CameraViewModel}
-  \item \texttt{ChatViewModel.extractImage()} konverterer billedet til JPEG-data (80\% komprimering) og sender det som \texttt{multipart/form-data} til \texttt{POST /api/v1/extract} med en timeout på 60 sekunder
-  \item \texttt{NewExtractHandler} i Go parser form-data og sender billedets rå bytes til Google Cloud Vision via \texttt{BatchAnnotateImages}-kaldet med \texttt{DOCUMENT\_TEXT\_DETECTION}-feature
-  \item Vision returnerer en \texttt{FullTextAnnotation} med tekst og symbol-confidence scores. Funktionen \texttt{averageSymbolConfidence()} traverserer annotationshierarkiet (side → blok → paragraf → ord → symbol) og beregner en gennemsnitlig confidence-score
-  \item Hvis confidence er under tærsklen på 60\% (\texttt{confidenceThreshold = 0.60}), returneres resultatet øjeblikkeligt med \texttt{FlaggedForReview: true} uden at kalde Claude
-  \item Ved tilstrækkelig confidence sendes råteksten til \texttt{ClaudeClient.FormatEntities()}, som via \texttt{extractSystemPrompt} instruerer modellen til at returnere strukturerede entiteter som JSON
-  \item \texttt{cleanJSONResponse()} udtrækker JSON-objektet fra svaret og trimmer eventuelle markdown-wrappers
-  \item Det dekodede \texttt{ExtractionResult} returneres til iOS-klienten, som renderer resultatet som en \texttt{EntitiesBubble} eller — ved lav confidence — en \texttt{FlaggedBubble}
-\end{enumerate}
+Teknikeren fotograferer maskinens typeskilt via \texttt{ImagePicker}, som returnerer et \texttt{UIImage}-objekt til \texttt{CameraViewModel}. \texttt{ChatViewModel.extractImage()} konverterer billedet til JPEG-data (80\% komprimering) og sender det som \texttt{multipart/form-data} til \texttt{POST /api/v1/extract} med en timeout på 60 sekunder.
 
-\section{Dataflow: Videobaseret udtræk}
-\label{sec:dataflow-video}
+Go-middlewaren parser form-data og sender billedets rå bytes til Google Cloud Vision via \texttt{DOCUMENT\_TEXT\_DETECTION}. Vision returnerer en \texttt{FullTextAnnotation} med tekst og symbol-confidence scores, og funktionen \texttt{averageSymbolConfidence()} beregner en gennemsnitlig confidence-score på tværs af alle symboler i annotationen.
 
-Videobehandlingen følger et udvidet pipeline der inkluderer frame-udtræk via ffmpeg:
+Hvis confidence er under tærsklen på 60\%, returneres resultatet øjeblikkeligt med \texttt{flagged\_for\_review: true} uden at kalde Claude, og iOS-klienten viser en \texttt{FlaggedBubble} der opfordrer teknikeren til at tage et nyt, tydeligere billede. Ved tilstrækkelig confidence sendes råteksten til \texttt{ClaudeClient.FormatEntities()}, som returnerer strukturerede entiteter som JSON. Det dekodede \texttt{ExtractionResult} renderes som en \texttt{EntitiesBubble} i iOS-klienten.
 
-\begin{enumerate}
-  \item Teknikeren optager en video og panorerer kameraet henover maskinlabelen. Videofilen (mp4-format) sendes som \texttt{multipart/form-data} til \texttt{POST /api/v1/extract} med en timeout på 120 sekunder
-  \item \texttt{processVideo()} i \texttt{video.go} gemmer videodata i en midlertidig mappe og kalder ffmpeg via \texttt{exec.CommandContext}: \texttt{ffmpeg -i video.mp4 -vf fps=1 frame\_\%03d.jpg}
-  \item Hvert ekstraheret frame sendes individuelt til Google Cloud Vision OCR
-  \item Tekstresultaterne fra alle frames aggregeres med frame-headers (\texttt{"--- Frame N ---"}) og en gennemsnitlig confidence beregnes på tværs af alle gyldige frames
-  \item Det aggregerede tekstindhold behandles af Claude som én samlet streng, identisk med billedflowet
-\end{enumerate}
+\subsection{Videobaseret udtræk}
 
-Den midlertidige mappe slettes automatisk via \texttt{defer os.RemoveAll(tempDir)} uanset udfaldet af behandlingen.
+Videobehandlingen følger samme pipeline som billedflowet, men med et indledende frame-udtræk via ffmpeg. Videofilen sendes som \texttt{multipart/form-data} til \texttt{POST /api/v1/extract} med en timeout på 120 sekunder. \texttt{processVideo()} gemmer videoen i en midlertidig mappe og kalder ffmpeg med \texttt{fps=1}, hvorefter hvert frame sendes individuelt til Google Cloud Vision OCR. Tekstresultaterne aggregeres på tværs af alle frames, og det samlede indhold behandles af Claude identisk med billedflowet. Den midlertidige mappe slettes automatisk via \texttt{defer os.RemoveAll(tempDir)}.
 
-\section{Dataflow: AI-vejledning}
-\label{sec:dataflow-analyze}
+\subsection{AI-vejledning}
 
-Når teknikeren trykker \textit{Analyser} på en entitet i \texttt{EntitiesBubble}, trigges følgende flow:
-
-\begin{enumerate}
-  \item \texttt{ChatViewModel.analyzeEntity()} sender en \texttt{AnalyzeRequest} som JSON til \texttt{POST /api/v1/analyze} med \texttt{target\_label}, \texttt{target\_value}, \texttt{machine\_model} (udledt fra kontekst-entiteterne) og alle øvrige entiteter som baggrundskontekst
-  \item \texttt{NewAnalyzeHandler} validerer input og videresender til \texttt{ClaudeClient.AnalyzeTarget()}
-  \item Claude instrueres via \texttt{analyzeSystemPrompt} til at generere struktureret vejledning med minimum tre vejledningsskridt, to sikkerhedsnoter og et \texttt{uncertainty\_level} (\texttt{"low"}, \texttt{"medium"} eller \texttt{"high"})
-  \item Sproget for vejledningen styres af \texttt{language}-feltet i requesten (\texttt{"da"} eller \texttt{"en"}), som bestemmer hvilken sproglig instruktion der tilføjes prompten
-  \item Den dekodede \texttt{MaintenanceGuidance} returneres og renderes som en \texttt{GuidanceBubble} i iOS-klienten
-\end{enumerate}
+Når teknikeren trykker \textit{Analyser} på en entitet i \texttt{EntitiesBubble}, sender \texttt{ChatViewModel.analyzeEntity()} en \texttt{AnalyzeRequest} som JSON til \texttt{POST /api/v1/analyze} med den valgte entitet samt alle øvrige entiteter som baggrundskontekst. Claude instrueres til at returnere struktureret vejledning med minimum tre vejledningsskridt, to sikkerhedsnoter og et \texttt{uncertainty\_level}. Sproget styres af \texttt{language}-feltet i requesten (\texttt{"da"} eller \texttt{"en"}), og den dekodede \texttt{MaintenanceGuidance} renderes som en \texttt{GuidanceBubble} i iOS-klienten.
 
 \section{Fejlhåndtering}
 \label{sec:fejlhaandtering}
@@ -156,11 +124,11 @@ På \textbf{klientsiden} implementerer \texttt{ChatViewModel} et \texttt{RetryCo
 Go-serveren deployes til DTU-serveren via et automatiseret shell-script (\texttt{deploy.sh}), der udfører følgende trin i rækkefølge:
 
 \begin{enumerate}
-  \item Køring af samtlige Go-unit tests (\texttt{go test ./...}) — scriptet afbrydes ved testfejl
+  \item Køring af samtlige Go-unit tests (\texttt{go test ./...}) og scriptet afbrydes ved testfejl
   \item Cross-kompilering til Linux/amd64: \texttt{GOOS=linux GOARCH=amd64 go build -o arkyn-server}
   \item Stop af den kørende systemd-service via SSH
   \item Kopiering af den nye binær til serveren via \texttt{scp}
   \item Genstart af service og verifikation af servicestatus
 \end{enumerate}
 
-Serverens konfiguration — herunder API-nøgler til Anthropic og Google Cloud — læses udelukkende fra miljøvariabler (\texttt{ANTHROPIC\_API\_KEY}, \texttt{GOOGLE\_APPLICATION\_CREDENTIALS}), der aldrig indgår i versionsstyringen.
+Serverens konfiguration består af API-nøgler til Anthropic og Google Cloud der læses udelukkende fra miljøvariabler (\texttt{ANTHROPIC\_API\_KEY}, \texttt{GOOGLE\_APPLICATION\_CREDENTIALS}), der aldrig indgår i versionsstyringen.

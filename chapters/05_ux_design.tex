@@ -6,7 +6,7 @@
 
 Applikationens primære brugere er vedligeholdelsesteknikere, der arbejder i industrielle produktionsmiljøer. En central observation fra behovskortlægningen i samarbejde med Arkyn Studios er, at en væsentlig del af denne brugergruppe udgøres af ældre herrer og kvinder, der ikke nødvendigvis har daglig erfaring med at betjene en iPad eller andre touchbaserede enheder. Mange er erfarne fagfolk med betydelig teknisk viden om maskiner og udstyr, men deres digitale fortrolighed varierer markant.
 
-Dette stiller særlige krav til designet. Det er ikke tilstrækkeligt at designe en applikation, der blot er funktionel — den skal være så intuitiv, at en bruger uden erfaring med mobile applikationer kan gennemføre kerneflowet fra kameraåbning til AI-genereret vejledning uden forudgående oplæring. Designfilosofien har derfor fra starten været at holde brugergrænsefladen så simpel og direkte som mulig: færre valg ad gangen, tydelige handlinger og ingen unødvendig kompleksitet.
+Dette stiller særlige krav til designet. Det er ikke tilstrækkeligt at designe en applikation, der blot er funktionel, den skal være så intuitiv, at en bruger uden erfaring med mobile applikationer kan gennemføre kerneflowet fra kameraåbning til AI-genereret vejledning uden forudgående oplæring. Designfilosofien har derfor fra starten været at holde brugergrænsefladen så simpel og direkte som mulig: færre valg ad gangen, tydelige handlinger og ingen unødvendig kompleksitet.
 
 Denne tilgang er i overensstemmelse med krav NF4 fra kravspecifikationen, som eksplicit fastslår, at kerneflowet skal kunne gennemføres uden forudgående instruktion.
 
@@ -15,22 +15,22 @@ Denne tilgang er i overensstemmelse med krav NF4 fra kravspecifikationen, som ek
 
 Designet er bygget op om tre overordnede principper, der alle understøtter den brede og varierede brugergruppe.
 
-\textbf{Simpelt og lineært brugerflow.} Applikationen er organiseret omkring ét enkelt, lineært kerneflow: tag et billede $\rightarrow$ gennemgå de udtrukne data $\rightarrow$ modtag vedligeholdelsesvejledning. Brugeren præsenteres aldrig for mere end ét primært handlingsvalg ad gangen. Dette reducerer kognitiv belastning og minimerer risikoen for at navigere forkert — et hensyn der er særligt vigtigt for brugere med begrænset erfaring med touchskærme.
+\textbf{Simpelt og lineært brugerflow.} Applikationen er organiseret omkring ét enkelt, lineært kerneflow: tag et billede $\rightarrow$ gennemgå de udtrukne data $\rightarrow$ modtag vedligeholdelsesvejledning. Brugeren præsenteres aldrig for mere end ét primært handlingsvalg ad gangen. Dette reducerer kognitiv belastning og minimerer risikoen for at navigere forkert hvilket er vigtigt for brugere med begrænset erfaring med touchskærme.
 
 \textbf{Store, tydelige interaktionselementer.} Knapper og trykflader er dimensioneret med generøs tapstørrelse for at imødekomme brugere, der måske er uvante med berøringsskærme eller arbejder med handsker på. Tekst er valgt i en let læselig skriftstørrelse, og farvekontrasten er høj nok til at sikre god læsbarhed selv i industrielle lysforhold med direkte sollys eller kunstig belysning.
 
-\textbf{Meningsfuld og umiddelbar feedback.} Brugeren holdes løbende orienteret om systemets tilstand via synlige loading-indikatorer og kortfattede statusbeskeder. Fejlsituationer — eksempelvis lav OCR-kvalitet eller netværksproblemer — kommunikeres i klart og handlingsorienteret sprog frem for tekniske fejlkoder, så brugeren altid ved, hvad det næste skridt er.
+\textbf{Meningsfuld og umiddelbar feedback.} Brugeren holdes løbende orienteret om systemets tilstand via synlige loading indikatorer og kortfattede statusbeskeder. Fejlsituationer som eksempelvis lav OCR-kvalitet eller netværksproblemer —der kommunikeres i klart og handlingsorienteret sprog frem for tekniske fejlkoder, så brugeren altid ved, hvad det næste skridt er.
 
 Disse principper afspejler Nielsens klassiske usability-heuristikker~\cite{nielsen_heuristics}, særligt \textit{Visibility of system status}, \textit{Error prevention} og \textit{Recognition rather than recall}, der alle sigter mod at reducere brugerens mentale arbejdsbyrde.
 
 \section{Navigation og informationsarkitektur}
 \label{sec:navigation}
 
-Applikationen er struktureret som en \texttt{TabView} med to primære faner: \textbf{Kamera} og \textbf{Chat}. Denne fladstruktur er et bevidst designvalg. En dybere navigationshierarki med undermapper og indstillingssider ville øge kompleksiteten unødvendigt for en brugergruppe, der primært har ét formål med applikationen: at identificere en maskine og modtage vejledning hurtigt.
+Applikationen er struktureret som ét enkelt, samlet view \texttt{ChatView} der fungerer som applikationens eneste skærm. Et tidligere design opererede med en \texttt{TabView} med separate faner for kamera og chat, men dette blev forenklet i en senere iteration. Kameraadgang er i stedet integreret direkte i bunden af chat-viewet via to knapper, hvilket eliminerer behovet for at navigere mellem faner.
 
-Fanestrukturen giver brugeren et øjeblikkeligt overblik over de tilgængelige funktioner og eliminerer behovet for at huske, hvor en specifik funktion befinder sig. Dette er et vigtigt hensyn for brugere, der kun åbner applikationen sporadisk i forbindelse med vedligeholdelsesopgaver.
+Dette designvalg reducerer den kognitive belastning yderligere: brugeren åbner applikationen og befinder sig med det samme i det rette flow uden at skulle tage stilling til navigation. Det er et bevidst valg i overensstemmelse med princippet om simpelt og lineært brugerflow, og understøtter særligt de teknikere, der kun anvender applikationen sporadisk og ikke ønsker at lære en navigationshierarki udenad.
 
-\section{Chat-interface og bobledesign}
+\section{Chat-interface, bobledesign og inputmodel}
 \label{sec:chatdesign}
 
 Interaktionen med systemet er modelleret som en chat-samtale, hvilket er en velkendt paradigme for en bred brugergruppe. Resultater præsenteres som meddelelsesbob\-ler (\textit{bubbles}), der er differentieret visuelt efter indholdstype:
@@ -44,6 +44,15 @@ Interaktionen med systemet er modelleret som en chat-samtale, hvilket er en velk
 \end{itemize}
 
 Denne differentiering sikrer, at brugeren altid kan skelne mellem systemets tilstande uden at skulle læse teknisk information.
+
+\subsection{Knap-baseret input fravalg af fritekst}
+\label{sec:inputmodel}
+
+Et bevidst designvalg i den endelige implementation er, at applikationen \emph{ikke} understøtter fritekstinput via tastatur. Input-området i bunden af skærmen består udelukkende af to knapper: \textbf{Kamera} og \textbf{Galleri}. Der er ingen tekstboks og intet tastatur.
+
+Begrundelsen er kontekstuel: vedligeholdelsesteknikere, der arbejder på et fabriksgulv med en tablet i hånden, har sjældent hverken tid eller behov for at skrive fritekstbeskeder. Kernebrugsscenariet er entydigt, tag et billede, modtag vejledning og al yderligere interaktion håndteres via de handlingsknapper, der fremgår direkte af resultatboblerne (f.eks.\ \textit{Analyser}, \textit{Søg}, \textit{Kopiér}).
+
+Fravalget af tastatur fjerner desuden en potentiel kilde til frustration: et tastatur, der popper op uventet på en tablet, dækker en stor del af skærmen og kan forstyrre den bruger, der blot ønsker et hurtigt overblik. Ved at udelade fritekstinput holdes grænsefladen konsekvent knap-drevet og forudsigelig, hvilket understøtter krav NF4 om, at kerneflowet skal kunne gennemføres uden forudgående instruktion.
 
 \section{Kameraoverlay og videooptagelse}
 \label{sec:kameraoverlay}

@@ -221,25 +221,29 @@
   {\large En mobil prototype til Arkyn Studios}
 
   \\[0.4cm]\noindent\rule{\textwidth}{1pt}
-
   \vspace{2.5cm}
 
-  \begin{minipage}{0.45\textwidth}
+\begin{minipage}{0.3\textwidth}
     \centering
-
     \textbf{FORFATTER}\\[0.3cm]
     Peter Hannibal Hildorf\\
-    \texttt{s[studienummer]}
+    \texttt{s224274}
   \end{minipage}
   \hfill
-  \begin{minipage}{0.45\textwidth}
+  \begin{minipage}{0.3\textwidth}
     \centering
     \textbf{VEJLEDER}\\[0.3cm]
-    [Vejledernavn]\\
+    Gökçe Aydos\\
     DTU
   \end{minipage}
-
-  \vspace{2.5cm}
+  \hfill
+  \begin{minipage}{0.3\textwidth}
+    \centering
+    \textbf{PRAKTIKVEJLEDER}\\[0.3cm]
+    Rune Durhuus-Andersen\\
+    Arkyn Studios
+  \end{minipage}
+  \vspace{2cm}
 
   {\normalsize Maj 2026}
 
@@ -270,7 +274,13 @@
 % identification through image- and video-based Optical Character Recognition
 % (OCR), followed by AI-generated maintenance guidance. [...]
 
-\textit{(Skrives sidst — se kommentar i main.tex)}
+Maintenance technicians in industrial production environments spend considerable time manually identifying machines and locating relevant maintenance information. This is a process that is time-consuming, error-prone, and highly dependent on individual experience. This project develops and evaluates a prototype that combines image-based text recognition (OCR) and AI-generated guidance to automate this process directly on the technician's mobile device.
+
+An iOS application has been implemented in Swift and SwiftUI, supported by a Go-based middleware server deployed on DTU's infrastructure. The system uses Google Cloud Vision for OCR extraction from images and video recordings, and Anthropic Claude Haiku to structure the extracted text into typed entities and generate actionable maintenance guidance with safety warnings. A confidence-based mechanism ensures controlled error handling when image quality is insufficient.
+
+The prototype has been evaluated using real industrial nameplates and labels from varying sources, producing relevant and actionable results across label types and image qualities. Backend endpoints are verified through automated unit tests.
+
+The project demonstrates that the combination of OCR and modern language models is mature enough to deliver real user value in a maintenance context today, and provides a solid foundation for Arkyn Studios' continued product development.
 
 \clearpage
 
@@ -295,8 +305,7 @@
 \include{chapters/09_conclusion}
 
 
-% ── Referencer 
-───────────────────────────────────────────────
+% ── Referencer ───────────────────────────────────────────────
 \clearpage
 \printbibliography[heading=bibintoc, title={Referencer}]
 
@@ -306,11 +315,175 @@
 \chapter{API-dokumentation}
 \label{app:api}
 
-\textit{(Udfyldes i et senere skridt)}
+Dette appendix dokumenterer samtlige HTTP-endpoints eksponeret af
+Go middleware-serveren. Serveren er deployet på
+\texttt{130.225.170.229:8080}.
+
+% ── GET /health ──────────────────────────────────────────────
+\section*{GET /health}
+
+Returnerer serverens aktuelle status og et tidsstempel. Anvendes
+af iOS-klienten til at vise forbindelsesstatus i realtid.
+
+\textbf{Request:} Ingen parametre.
+
+\textbf{Response (200 OK):}
+\begin{lstlisting}[language={}]
+{
+  "status": "ok",
+  "timestamp": "2026-05-01T10:32:00Z"
+}
+\end{lstlisting}
+
+% ── GET /version ─────────────────────────────────────────────
+\section*{GET /version}
+
+Returnerer API-versionsnummeret.
+
+\textbf{Request:} Ingen parametre.
+
+\textbf{Response (200 OK):}
+\begin{lstlisting}[language={}]
+{
+  "version": "1.22"
+}
+\end{lstlisting}
+
+% ── POST /api/v1/extract ─────────────────────────────────────
+\section*{POST /api/v1/extract}
+
+Modtager et billede eller en video som \texttt{multipart/form-data},
+kører Google Cloud Vision OCR og returnerer strukturerede entiteter
+formateret af Claude Haiku.
+
+\textbf{Request (\texttt{multipart/form-data}):}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Felt} & \textbf{Type} & \textbf{Beskrivelse} \\
+\midrule
+\texttt{image} & fil (JPEG) & Billede af maskinlabel. Enten dette eller \texttt{video} skal være til stede. \\
+\texttt{video} & fil (MP4)  & Videooptagelse af maskinlabel. Frames udtrækkes ved 1 FPS. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Response (200 OK):}
+\begin{lstlisting}[language={}]
+{
+  "entities": [
+    {
+      "label": "Manufacturer",
+      "value": "SEW-Eurodrive",
+      "actions": ["copy", "search", "analyze"]
+    },
+    {
+      "label": "Model",
+      "value": "MDX61B0055-5A3-4-00",
+      "actions": ["copy", "search", "analyze"]
+    },
+    {
+      "label": "Serial Number",
+      "value": "SN123456789",
+      "actions": ["copy", "analyze"]
+    }
+  ],
+  "raw_text": "SEW-Eurodrive MDX61B...",
+  "confidence": 0.94,
+  "flagged_for_review": false
+}
+\end{lstlisting}
+
+\textbf{Fejlresponses:}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Statuskode} & \textbf{Årsag} \\
+\midrule
+400 & Manglende eller ugyldig multipart-form, eller hverken \texttt{image} eller \texttt{video} er til stede. \\
+500 & OCR-kald til Google Cloud Vision fejlede, eller Claude-formatering fejlede. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Bemærkning:} Hvis \texttt{confidence} er under 0{,}60 returneres
+\texttt{flagged\_for\_review: true} og \texttt{entities} vil være tom.
+Claude kaldes ikke i dette tilfælde.
+
+% ── POST /api/v1/analyze ─────────────────────────────────────
+\section*{POST /api/v1/analyze}
+
+Modtager en valgt entitet med kontekst og returnerer struktureret
+vedligeholdelsesvejledning genereret af Claude Haiku.
+
+\textbf{Request (\texttt{application/json}):}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Felt} & \textbf{Type} & \textbf{Beskrivelse} \\
+\midrule
+\texttt{target\_label} & string & Feltnavnet teknikeren valgte, f.eks. \texttt{"Model"}. Påkrævet. \\
+\texttt{target\_value} & string & Værdien af det valgte felt, f.eks. \texttt{"MDX61B"}. Påkrævet. \\
+\texttt{machine\_model} & string & Bedste estimat på maskinmodel (kan være lig \texttt{target\_value}). \\
+\texttt{context}        & array  & Øvrige entiteter fra extract-steget som baggrundskontekst. \\
+\texttt{language}       & string & Sprogkode: \texttt{"da"} for dansk, \texttt{"en"} for engelsk. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Response (200 OK):}
+\begin{lstlisting}[language={}]
+{
+  "target_label": "Model",
+  "target_value": "MDX61B0055-5A3-4-00",
+  "equipment_context": "SEW-Eurodrive MDX61B frequency inverter,
+    used for motor speed control in industrial applications.",
+  "general_guidance": [
+    "Verify input voltage matches nameplate specifications before
+     energizing the drive.",
+    "Inspect cooling fins and fan for dust accumulation;
+     clean with compressed air if necessary.",
+    "Check all terminal connections for tightness and signs
+     of corrosion or heat damage."
+  ],
+  "safety_notes": [
+    "Always disconnect and lock out/tag out power before
+     performing any maintenance.",
+    "Allow capacitors to discharge for at least 5 minutes
+     after power-off before touching internal components."
+  ],
+  "source_references": [
+    "SEW-Eurodrive MDX61B Operating Instructions",
+    "IEC 60364 Electrical Installations Standard",
+    "ISO 13849 Safety of Machinery"
+  ],
+  "uncertainty_level": "low"
+}
+\end{lstlisting}
+
+\textbf{Fejlresponses:}
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Statuskode} & \textbf{Årsag} \\
+\midrule
+400 & \texttt{target\_label} eller \texttt{target\_value} mangler, eller JSON-syntaks er ugyldig. \\
+500 & Claude-kald fejlede eller returnerede ugyldigt JSON. \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \chapter{Testresultater}
 \label{app:tests}
 
-\textit{(Udfyldes i et senere skridt)}
+\textit{Jeg mangler at skrive mine tests ind}
 
 \end{document}
